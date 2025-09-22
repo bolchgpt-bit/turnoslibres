@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}{{ complex.name }} - TurnosLibres.com{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="mb-6">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{{ url_for('main.index') }}" class="hover:text-blue-600">Inicio</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li><a href="#" class="hover:text-blue-600">Complejos</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">{{ complex.name }}</li>
+    </ol>
+</nav>
+
+<!-- Complex Info -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ complex.name }}</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Información</h3>
+            <div class="space-y-2 text-gray-600">
+                <p><strong>Ciudad:</strong> {{ complex.city }}</p>
+                {% if complex.address %}
+                    <p><strong>Dirección:</strong> {{ complex.address }}</p>
+                {% endif %}
+                {% if complex.contact_phone %}
+                    <p><strong>Teléfono:</strong> {{ complex.contact_phone }}</p>
+                {% endif %}
+                {% if complex.contact_email %}
+                    <p><strong>Email:</strong> {{ complex.contact_email }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Categorías</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for category in complex.categories %}
+                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                        {{ category.title }}
+                    </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    {% include 'partials/_filters.html' %}
+</div>
+
+<!-- Legend -->
+<div class="mb-6">
+    {% include 'partials/_legend.html' %}
+</div>
+
+<!-- Turnos for this complex -->
+<div id="turnos-container" class="bg-white rounded-lg shadow-md">
+    <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos de {{ complex.name }}</h2>
+        <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
+    </div>
+</div>
+
+<!-- Hidden inputs for HTMX -->
+<input type="hidden" name="complex_slug" value="{{ complex.slug }}">
+{% endblock %}

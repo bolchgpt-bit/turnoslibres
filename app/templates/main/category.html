@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.title }} - TurnosLibres.com{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="mb-6">
+    <ol class="flex items-center space-x-2 text-sm text-gray-500">
+        <li><a href="{{ url_for('main.index') }}" class="hover:text-blue-600">Inicio</a></li>
+        <li><span class="mx-2">/</span></li>
+        <li class="text-gray-900 font-medium">{{ category.title }}</li>
+    </ol>
+</nav>
+
+<!-- Category Header -->
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ category.title }}</h1>
+    <p class="text-gray-600">{{ category.description or 'Encuentra turnos disponibles en esta categoría.' }}</p>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    {% include 'partials/_filters.html' %}
+</div>
+
+<!-- Legend -->
+<div class="mb-6">
+    {% include 'partials/_legend.html' %}
+</div>
+
+<!-- View Toggle -->
+<div class="mb-6">
+    <div class="flex gap-2">
+        <button class="btn-primary" 
+                hx-get="{{ url_for('ui.turnos_table') }}" 
+                hx-target="#turnos-container"
+                hx-include="[name='date'], [name='category'], [name='status'], [name='complex_slug'], [name='sport_service']"
+                hx-vals='{"span": "day"}'>
+            Vista Día
+        </button>
+        <button class="btn-secondary" 
+                hx-get="{{ url_for('ui.turnos_table_grouped') }}" 
+                hx-target="#turnos-container"
+                hx-include="[name='date'], [name='category'], [name='status'], [name='complex_slug'], [name='sport_service']"
+                hx-vals='{"span": "week"}'>
+            Vista Semana
+        </button>
+    </div>
+</div>
+
+<!-- Turnos Container -->
+<div id="turnos-container" class="bg-white rounded-lg shadow-md">
+    <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos Disponibles</h2>
+        <p class="text-gray-600">Selecciona filtros y una vista para ver los turnos disponibles.</p>
+    </div>
+</div>
+
+<!-- Hidden inputs for HTMX -->
+<input type="hidden" name="category" value="{{ category.slug }}">
+{% endblock %}

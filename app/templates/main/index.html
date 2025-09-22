@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}TurnosLibres.com - Encuentra y reserva turnos fácilmente{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="text-center mb-12">
+    <div class="mb-8">
+        <img src="/placeholder.svg?height=200&width=400" 
+             alt="TurnosLibres.com" 
+             class="mx-auto rounded-lg shadow-lg">
+    </div>
+    
+    <h1 class="text-4xl md:text-6xl font-bold text-gray-900 mb-4">
+        TurnosLibres.com
+    </h1>
+    <p class="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+        Encuentra y reserva turnos disponibles en deportes, estética y servicios profesionales.
+    </p>
+</div>
+
+<!-- Category Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+    {% for category in categories %}
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300">
+        <div class="h-48 bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+            <div class="text-center text-white">
+                {% if category.slug == 'deportes' %}
+                    <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2L3 7v11a1 1 0 001 1h3v-8h6v8h3a1 1 0 001-1V7l-7-5z"/>
+                    </svg>
+                {% elif category.slug == 'estetica' %}
+                    <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                {% else %}
+                    <svg class="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3z"/>
+                    </svg>
+                {% endif %}
+                <h3 class="text-2xl font-bold">{{ category.title }}</h3>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            <p class="text-gray-600 mb-4">{{ category.description or 'Encuentra turnos disponibles en esta categoría.' }}</p>
+            <a href="{{ url_for('main.category_page', category=category.slug) }}" 
+               class="btn-primary w-full text-center block">
+                Ver Turnos
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- CTA Section -->
+<div class="bg-blue-50 rounded-lg p-8 text-center">
+    <h2 class="text-2xl font-bold text-gray-900 mb-4">
+        ¿Tienes un negocio?
+    </h2>
+    <p class="text-gray-600 mb-6">
+        Publica tus turnos y llega a más clientes con TurnosLibres.com
+    </p>
+    <a href="{{ url_for('main.publish') }}" class="btn-primary text-lg px-8 py-3">
+        Quiero publicar mis turnos
+    </a>
+</div>
+{% endblock %}

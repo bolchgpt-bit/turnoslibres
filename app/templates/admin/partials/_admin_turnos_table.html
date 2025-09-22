@@ -1,0 +1,141 @@
+<div class="p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">Gestión de Turnos</h2>
+        <span class="text-sm text-gray-500">{{ total }} turnos encontrados</span>
+    </div>
+    
+    {% if timeslots %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha y Hora
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Lugar/Servicio
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Precio
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Estado
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Código
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acciones
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for timeslot in timeslots %}
+                        <tr id="timeslot-{{ timeslot.id }}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ timeslot.start.strftime('%d/%m/%Y %H:%M') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% if timeslot.field %}
+                                    {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}
+                                    {% if timeslot.field.sport %}
+                                        <br><span class="text-gray-500">{{ timeslot.field.sport }}</span>
+                                    {% endif %}
+                                {% elif timeslot.service %}
+                                    {{ timeslot.service.name }}
+                                    <br><span class="text-gray-500">{{ timeslot.service.category.title }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% if timeslot.price %}
+                                    ${{ timeslot.price }} {{ timeslot.currency }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if timeslot.status.value == 'available' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Disponible
+                                    </span>
+                                {% elif timeslot.status.value == 'holding' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        Reservando
+                                    </span>
+                                {% elif timeslot.status.value == 'reserved' %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                        Reservado
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        Bloqueado
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {{ timeslot.reservation_code or '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    {% if timeslot.status.value == 'holding' %}
+                                        <button class="text-green-600 hover:text-green-900"
+                                                hx-post="{{ url_for('api.confirm_turno', timeslot_id=timeslot.id) }}"
+                                                hx-target="#result-{{ timeslot.id }}"
+                                                hx-confirm="¿Confirmar este turno?">
+                                            Confirmar
+                                        </button>
+                                    {% endif %}
+                                    
+                                    {% if timeslot.status.value != 'available' %}
+                                        <button class="text-blue-600 hover:text-blue-900"
+                                                hx-post="{{ url_for('api.release_turno', timeslot_id=timeslot.id) }}"
+                                                hx-target="#result-{{ timeslot.id }}"
+                                                hx-confirm="¿Liberar este turno?">
+                                            Liberar
+                                        </button>
+                                    {% endif %}
+                                </div>
+                                <div id="result-{{ timeslot.id }}" class="mt-1 text-xs"></div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if has_prev or has_next %}
+            <div class="flex justify-between items-center mt-4">
+                <div>
+                    {% if has_prev %}
+                        <button class="btn-secondary"
+                                hx-get="{{ url_for('admin.turnos_table') }}"
+                                hx-target="#turnos-table"
+                                hx-include="[name='date'], [name='span'], [name='category'], [name='status'], [name='complex_slug']"
+                                hx-vals='{"page": "{{ page - 1 }}"}'>
+                            Anterior
+                        </button>
+                    {% endif %}
+                </div>
+                
+                <span class="text-sm text-gray-500">Página {{ page }}</span>
+                
+                <div>
+                    {% if has_next %}
+                        <button class="btn-primary"
+                                hx-get="{{ url_for('admin.turnos_table') }}"
+                                hx-target="#turnos-table"
+                                hx-include="[name='date'], [name='span'], [name='category'], [name='status'], [name='complex_slug']"
+                                hx-vals='{"page": "{{ page + 1 }}"}'>
+                            Siguiente
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="text-center py-8">
+            <p class="text-gray-500">No hay turnos disponibles con los filtros seleccionados.</p>
+        </div>
+    {% endif %}
+</div>

@@ -1,0 +1,40 @@
+<form hx-get="{{ url_for('ui.turnos_table') }}" hx-target="#turnos-container" hx-trigger="change, submit">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div>
+            <label class="form-label">Fecha</label>
+            <input type="date" name="date" class="form-input" value="{{ request.args.get('date', '') }}">
+        </div>
+        
+        <div>
+            <label class="form-label">Estado</label>
+            <select name="status" class="form-input">
+                <option value="">Todos</option>
+                <option value="available" {% if request.args.get('status') == 'available' %}selected{% endif %}>Disponible</option>
+                <option value="holding" {% if request.args.get('status') == 'holding' %}selected{% endif %}>Reservando</option>
+                <option value="reserved" {% if request.args.get('status') == 'reserved' %}selected{% endif %}>Reservado</option>
+                <option value="blocked" {% if request.args.get('status') == 'blocked' %}selected{% endif %}>Bloqueado</option>
+            </select>
+        </div>
+        
+        <div>
+            <label class="form-label">Complejo</label>
+            <input type="text" name="complex_slug" class="form-input" 
+                   placeholder="Nombre del complejo" 
+                   value="{{ request.args.get('complex_slug', '') }}">
+        </div>
+        
+        <div>
+            <label class="form-label">Deporte/Servicio</label>
+            <input type="text" name="sport_service" class="form-input" 
+                   placeholder="Buscar..." 
+                   value="{{ request.args.get('sport_service', '') }}">
+        </div>
+    </div>
+    
+    <div class="flex gap-2">
+        <button type="submit" class="btn-primary">Filtrar</button>
+        <button type="button" onclick="this.form.reset(); htmx.trigger(this.form, 'submit')" class="btn-secondary">
+            Limpiar
+        </button>
+    </div>
+</form>

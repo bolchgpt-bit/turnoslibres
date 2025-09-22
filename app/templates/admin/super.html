@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Super Admin - TurnosLibres.com{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Super Administración</h1>
+    <p class="text-gray-600">Gestión global del sistema.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Categorías</h3>
+        <p class="text-gray-600 mb-4">Gestionar categorías del sistema</p>
+        <button class="btn-primary" hx-get="/admin/categories_table" hx-target="#content-area">
+            Gestionar
+        </button>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Servicios</h3>
+        <p class="text-gray-600 mb-4">Gestionar servicios disponibles</p>
+        <button class="btn-primary" hx-get="/admin/services_table" hx-target="#content-area">
+            Gestionar
+        </button>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Complejos</h3>
+        <p class="text-gray-600 mb-4">Gestionar todos los complejos</p>
+        <button class="btn-primary" hx-get="/admin/complexes_table" hx-target="#content-area">
+            Gestionar
+        </button>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Usuarios</h3>
+        <p class="text-gray-600 mb-4">Gestionar usuarios del sistema</p>
+        <button class="btn-primary" hx-get="/admin/users_table" hx-target="#content-area">
+            Gestionar
+        </button>
+    </div>
+</div>
+
+<!-- Dynamic Content Area -->
+<div id="content-area" class="bg-white rounded-lg shadow-md p-6">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Selecciona una opción</h2>
+    <p class="text-gray-600">Elige una de las opciones de arriba para comenzar a gestionar el sistema.</p>
+</div>
+{% endblock %}

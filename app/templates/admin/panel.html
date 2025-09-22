@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}Panel de Administración - TurnosLibres.com{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Panel de Administración</h1>
+    <p class="text-gray-600">Gestiona tus complejos y turnos desde aquí.</p>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Turnos</h3>
+        <p class="text-gray-600 mb-4">Gestiona los turnos de tus complejos</p>
+        <div class="text-2xl font-bold text-blue-600 mb-2">
+            <!-- This would show actual count in production -->
+            --
+        </div>
+        <p class="text-sm text-gray-500">Turnos activos</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Complejos</h3>
+        <p class="text-gray-600 mb-4">Administra tus complejos y servicios</p>
+        <div class="text-2xl font-bold text-green-600 mb-2">
+            {{ current_user.complexes|length }}
+        </div>
+        <p class="text-sm text-gray-500">Complejos asignados</p>
+    </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Reservas</h3>
+        <p class="text-gray-600 mb-4">Consulta reservas confirmadas</p>
+        <div class="text-2xl font-bold text-purple-600 mb-2">
+            --
+        </div>
+        <p class="text-sm text-gray-500">Reservas hoy</p>
+    </div>
+</div>
+
+<!-- Filters Section -->
+<div class="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Filtros de Turnos</h2>
+    
+    <form hx-get="{{ url_for('admin.turnos_table') }}" hx-target="#turnos-table" hx-trigger="change, submit">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+            <div>
+                <label class="form-label">Fecha</label>
+                <input type="date" name="date" class="form-input" value="{{ request.args.get('date', '') }}">
+            </div>
+            
+            <div>
+                <label class="form-label">Vista</label>
+                <select name="span" class="form-input">
+                    <option value="day" {% if request.args.get('span') == 'day' %}selected{% endif %}>Día</option>
+                    <option value="week" {% if request.args.get('span') == 'week' %}selected{% endif %}>Semana</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="form-label">Categoría</label>
+                <select name="category" class="form-input">
+                    <option value="">Todas</option>
+                    <option value="deportes" {% if request.args.get('category') == 'deportes' %}selected{% endif %}>Deportes</option>
+                    <option value="estetica" {% if request.args.get('category') == 'estetica' %}selected{% endif %}>Estética</option>
+                    <option value="profesionales" {% if request.args.get('category') == 'profesionales' %}selected{% endif %}>Profesionales</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="form-label">Estado</label>
+                <select name="status" class="form-input">
+                    <option value="">Todos</option>
+                    <option value="available" {% if request.args.get('status') == 'available' %}selected{% endif %}>Disponible</option>
+                    <option value="holding" {% if request.args.get('status') == 'holding' %}selected{% endif %}>Reservando</option>
+                    <option value="reserved" {% if request.args.get('status') == 'reserved' %}selected{% endif %}>Reservado</option>
+                    <option value="blocked" {% if request.args.get('status') == 'blocked' %}selected{% endif %}>Bloqueado</option>
+                </select>
+            </div>
+            
+            <div>
+                <label class="form-label">Complejo</label>
+                <input type="text" name="complex_slug" class="form-input" 
+                       placeholder="Buscar complejo..." 
+                       value="{{ request.args.get('complex_slug', '') }}">
+            </div>
+        </div>
+        
+        <div class="flex gap-2">
+            <button type="submit" class="btn-primary">Filtrar</button>
+            <button type="button" onclick="this.form.reset(); htmx.trigger(this.form, 'submit')" class="btn-secondary">
+                Limpiar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Turnos Table -->
+<div id="turnos-table" class="bg-white rounded-lg shadow-md">
+    <div class="p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos</h2>
+        <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
+    </div>
+</div>
+{% endblock %}

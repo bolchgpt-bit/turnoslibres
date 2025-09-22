@@ -1,0 +1,67 @@
+<div class="p-6">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold text-gray-900">Gestión de Complejos</h2>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ciudad</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categorías</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Campos</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Usuarios</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for complex in complexes %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.city }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% for category in complex.categories %}
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 mr-1">
+                                    {{ category.title }}
+                                </span>
+                            {% endfor %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.fields|length }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.users|length }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button class="text-blue-600 hover:text-blue-900 mr-2"
+                                    onclick="showLinkForm({{ complex.id }})">
+                                Vincular
+                            </button>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Link/Unlink Modal (simplified) -->
+    <div id="link-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 class="text-lg font-semibold mb-4">Vincular Complejo con Categoría</h3>
+            <div id="link-form-content"></div>
+            <div class="mt-4 flex gap-2">
+                <button onclick="hideLinkForm()" class="btn-secondary">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showLinkForm(complexId) {
+    // This would be implemented with proper category selection
+    document.getElementById('link-modal').classList.remove('hidden');
+}
+
+function hideLinkForm() {
+    document.getElementById('link-modal').classList.add('hidden');
+}
+</script>
