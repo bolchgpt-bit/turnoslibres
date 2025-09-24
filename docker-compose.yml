@@ -27,7 +27,16 @@ services:
     volumes:
       - ./migrations:/app/migrations
     entrypoint: ["./entrypoint.sh"]
-    command: ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120", "app:app"]
+    command:
+      - gunicorn
+      - --bind
+      - 0.0.0.0:8000
+      - --workers
+      - "4"
+      - --timeout
+      - "120"
+      - app:create_app()
+
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
@@ -35,6 +44,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
 
   worker:
     build: .

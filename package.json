@@ -70,5 +70,22 @@
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
-  }
+  },
+  "description": "Sistema completo de gestión de turnos para tres verticales: Deportes, Estética y Profesionales.",
+  "main": "tailwind.config.js",
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bolchgpt-bit/turnoslibres.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/bolchgpt-bit/turnoslibres/issues"
+  },
+  "homepage": "https://github.com/bolchgpt-bit/turnoslibres#readme"
 }
