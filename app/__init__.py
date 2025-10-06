@@ -27,7 +27,10 @@ def create_app(config_name=None):
         app.config.update(config_name)
     else:
         app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql+psycopg2://postgres:postgres@localhost:5432/turnos')
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+            'DATABASE_URL',
+            'postgresql+psycopg2://postgres:postgres@localhost:5432/turnos'
+        )
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         app.config['WTF_CSRF_TIME_LIMIT'] = None
     
@@ -84,6 +87,13 @@ def create_app(config_name=None):
     
     from app.ui import bp as ui_bp
     app.register_blueprint(ui_bp, url_prefix='/ui')
+    
+    # 🔥 Nuevos blueprints de búsqueda
+    from app.main.search_routes import search_bp
+    app.register_blueprint(search_bp)  # /buscar/...
+
+    from app.api.search import api_search
+    app.register_blueprint(api_search)  # /api/v1/search/...
     
     return app
 

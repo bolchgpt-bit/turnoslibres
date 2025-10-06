@@ -171,6 +171,8 @@ class Subscription(db.Model):
     end_window = db.Column(db.DateTime(timezone=True), nullable=True)
     token_unsubscribe = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     status = db.Column(db.Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIVE, nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    criteria = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     # Relationships

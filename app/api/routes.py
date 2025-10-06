@@ -1,7 +1,7 @@
 from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.api import bp
-from app.models import Timeslot, TimeslotStatus, AppUser, Complex, Category, Service, Field, UserComplex, Subscription
+from app.models import Timeslot, TimeslotStatus, AppUser, Complex, Category, Service, Field, UserComplex, Subscription, SubscriptionStatus
 from app.utils import user_can_manage_complex, validate_email, clean_text
 from app.services.notification_service import NotificationService
 from app.security import (
@@ -271,20 +271,26 @@ def subscribe():
     try:
         if timeslot_id:
             # Direct timeslot subscription
-            timeslot = Timeslot.query.get_or_404(int(timeslot_id))
-            
+            try:
+                timeslot_id_int = int(timeslot_id)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'message': 'Turno inv·lido.'}), 400
+
+            timeslot = Timeslot.query.get_or_404(timeslot_id_int)
+
             # Check if already subscribed
-            existing = Subscription.query.filter_by(
-                email=email, 
-                timeslot_id=timeslot_id, 
-                is_active=True
+            existing = Subscription.query.filter(
+                Subscription.email == email,
+                Subscription.timeslot_id == timeslot_id_int,
+                Subscription.is_active.is_(True),
+                Subscription.status == SubscriptionStatus.ACTIVE,
             ).first()
-            
+
             if existing:
-                return jsonify({'success': False, 'message': 'Ya est√°s suscrito a este turno.'}), 400
-            
-            subscription = Subscription(email=email, timeslot_id=timeslot_id)
-            
+                return jsonify({'success': False, 'message': 'Ya est·s suscrito a este turno.'}), 400
+
+            subscription = Subscription(email=email, timeslot_id=timeslot_id_int)
+
         else:
             # Criteria-based subscription
             try:
@@ -321,8 +327,9 @@ def unsubscribe():
     try:
         subscription = Subscription.query.get_or_404(int(subscription_id))
         subscription.is_active = False
+        subscription.status = SubscriptionStatus.UNSUBSCRIBED
         db.session.commit()
-        
+
         return jsonify({'success': True, 'message': 'Te has desuscrito correctamente.'})
         
     except Exception as e:

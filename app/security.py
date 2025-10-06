@@ -1,18 +1,11 @@
 from functools import wraps
 from flask import request, jsonify, current_app, session
-from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import time
 import hashlib
 import hmac
 from datetime import datetime, timedelta
 import re
-
-# Rate limiter instance
-limiter = Limiter(
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
 
 def validate_email(email):
     """Validate email format"""
