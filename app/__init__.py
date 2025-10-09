@@ -8,7 +8,8 @@ from flask_limiter.util import get_remote_address
 import redis
 from rq import Queue
 import os
-from app.security import security_headers, generate_csrf_token
+from app.security import security_headers
+from flask_wtf.csrf import generate_csrf
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -20,6 +21,7 @@ limiter = Limiter(
 )
 
 def create_app(config_name=None):
+    """Crea y configura la app Flask, inicializa extensiones y registra blueprints."""
     app = Flask(__name__)
     
     # Configuration
@@ -58,7 +60,7 @@ def create_app(config_name=None):
     
     # Login manager configuration
     login_manager.login_view = 'admin.login'
-    login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
+    login_manager.login_message = 'Por favor inicia sesi��n para acceder a esta pǭgina.'
     login_manager.login_message_category = 'info'
     
     # Initialize Redis and RQ
@@ -69,11 +71,13 @@ def create_app(config_name=None):
     # Security headers
     @app.after_request
     def apply_security_headers(response):
+        """Aplica cabeceras de seguridad a cada respuesta HTTP."""
         return security_headers(response)
     
     @app.context_processor
     def inject_csrf_token():
-        return dict(csrf_token=generate_csrf_token)
+        """Inyecta helper para obtener token CSRF válido para Flask-WTF."""
+        return dict(csrf_token=generate_csrf)
     
     # Register blueprints
     from app.main import bp as main_bp
@@ -88,7 +92,7 @@ def create_app(config_name=None):
     from app.ui import bp as ui_bp
     app.register_blueprint(ui_bp, url_prefix='/ui')
     
-    # 🔥 Nuevos blueprints de búsqueda
+    # Nuevos blueprints de búsqueda
     from app.main.search_routes import search_bp
     app.register_blueprint(search_bp)  # /buscar/...
 
@@ -99,5 +103,6 @@ def create_app(config_name=None):
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Carga un usuario por ID para sesiones de Flask-Login."""
     from app.models import AppUser
     return AppUser.query.get(int(user_id))

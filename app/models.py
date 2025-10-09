@@ -24,10 +24,28 @@ class AppUser(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_superadmin = db.Column(db.Boolean, default=False, nullable=False)
+    # Categoría operativa del usuario para administración (deportes/estetica/profesionales)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
+    category = db.relationship('Category')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     # Relationships
     complexes = db.relationship('Complex', secondary='user_complexes', back_populates='users')
+    # Nuevas relaciones de administración para catálogo no-deportes
+    professionals = db.relationship(
+        'Professional',
+        secondary='user_professionals',
+        primaryjoin='AppUser.id==user_professionals.c.user_id',
+        secondaryjoin='Professional.id==user_professionals.c.professional_id',
+        lazy='dynamic'
+    )
+    beauty_centers = db.relationship(
+        'BeautyCenter',
+        secondary='user_beauty_centers',
+        primaryjoin='AppUser.id==user_beauty_centers.c.user_id',
+        secondaryjoin='BeautyCenter.id==user_beauty_centers.c.beauty_center_id',
+        lazy='dynamic'
+    )
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -64,6 +82,19 @@ class UserComplex(db.Model):
     
     user_id = db.Column(db.Integer, db.ForeignKey('app_users.id'), primary_key=True)
     complex_id = db.Column(db.Integer, db.ForeignKey('complexes.id'), primary_key=True)
+
+# Tablas de vínculo para catálogo (profesionales/centros de estética)
+user_professionals = db.Table(
+    'user_professionals',
+    db.Column('user_id', db.Integer, db.ForeignKey('app_users.id'), primary_key=True),
+    db.Column('professional_id', db.Integer, db.ForeignKey('professionals.id'), primary_key=True),
+)
+
+user_beauty_centers = db.Table(
+    'user_beauty_centers',
+    db.Column('user_id', db.Integer, db.ForeignKey('app_users.id'), primary_key=True),
+    db.Column('beauty_center_id', db.Integer, db.ForeignKey('beauty_centers.id'), primary_key=True),
+)
 
 class Category(db.Model):
     __tablename__ = 'categories'

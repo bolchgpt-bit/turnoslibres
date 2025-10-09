@@ -1,42 +1,135 @@
 <div class="p-6">
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold text-gray-900">Gestión de Usuarios</h2>
-    </div>
-    
-    <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200">
-            <thead class="bg-gray-50">
-                <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Complejos</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registro</th>
-                </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
-                {% for user in users %}
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.id }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.email }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            {% if user.is_superadmin %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    Super Admin
-                                </span>
-                            {% else %}
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    Admin
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.complexes|length }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ user.created_at.strftime('%d/%m/%Y') }}
-                        </td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+  {% if message_text %}
+  <div id="inline-alert" class="mb-4 alert {{ 'alert-error' if message_category=='error' else 'alert-success' }}">
+    {{ message_text }}
+  </div>
+  <script>
+  (function(){
+    var el = document.getElementById('inline-alert');
+    if(!el) return;
+    el.style.transition = 'opacity 0.5s ease';
+    setTimeout(function(){
+      el.style.opacity = '0';
+      setTimeout(function(){ if(el && el.parentNode) el.parentNode.removeChild(el); }, 600);
+    }, 3000);
+  })();
+  </script>
+  {% endif %}
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold text-gray-900">Gestión de Usuarios</h2>
+  </div>
+
+  <!-- Crear usuario (con categoría y entidad si no es superadmin) -->
+  <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+    <h3 class="text-lg font-semibold mb-3">Nuevo Usuario</h3>
+    <form method="post" autocomplete="off"
+          action="{{ url_for('admin.users_create') }}"
+          hx-post="{{ url_for('admin.users_create') }}"
+          hx-target="#content-area"
+          hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="form-label">Email</label>
+          <input type="email" name="email" required class="form-input" placeholder="usuario@dominio.com" autocomplete="off" value="">
+        </div>
+        <div>
+          <label class="form-label">Contraseña</label>
+          <input type="password" name="password" required class="form-input" placeholder="mín. 6 caracteres" autocomplete="new-password" value="">
+        </div>
+        <div class="flex items-end">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="is_superadmin" class="form-checkbox">
+            <span>Super Admin</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4" id="new-user-scope">
+        <div>
+          <label class="form-label">Categoría (solo Admin)</label>
+          <select class="form-input" name="category" id="new-user-category"
+                  hx-get="{{ url_for('admin.users_entity_options_by_category') }}"
+                  hx-target="#new-user-entity-select"
+                  hx-trigger="change"
+                  hx-include="#new-user-category">
+            <option value="">—</option>
+            {% for cat in categories %}
+              <option value="{{ cat.slug }}">{{ cat.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="new-user-entity-select">
+          <!-- Se cargará el select de entidad según categoría -->
+          <select class="form-input" disabled>
+            <option>Selecciona categoría para elegir entidad…</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <button type="submit" class="btn-primary">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Complejos</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registro</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for user in users %}
+        <tr>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.id }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.email }}</td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if user.is_superadmin %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Super Admin</span>
+            {% else %}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Admin</span>
+            {% endif %}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.category.title if user.category else '—' }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.complexes|length }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '-' }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <button class="btn-secondary"
+                    hx-get="{{ url_for('admin.users_edit') }}?user_id={{ user.id }}"
+                    hx-target="#content-area"
+                    hx-swap="innerHTML">
+              Editar
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+
+<script>
+// Validaciones visuales: ocultar categoría/entidad si es Super Admin
+(function(){
+  const superCb = document.querySelector('input[name="is_superadmin"]');
+  const scope = document.getElementById('new-user-scope');
+  if (!superCb || !scope) return;
+  const onToggle = () => {
+    if (superCb.checked) {
+      scope.classList.add('hidden');
+    } else {
+      scope.classList.remove('hidden');
+    }
+  };
+  superCb.addEventListener('change', onToggle);
+  onToggle();
+})();
+</script>

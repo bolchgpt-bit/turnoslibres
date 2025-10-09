@@ -4,7 +4,7 @@ from app.models import Timeslot, Field, Service, Complex, Category, Subscription
 from app.utils import validate_category, validate_span, validate_status, validate_date_format, validate_email, clean_text
 from app.services.notification_service import NotificationService
 from app import db, limiter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, or_
 
 @bp.route('/turnos_table')
@@ -63,6 +63,10 @@ def turnos_table():
         else:
             query = query.join(Service).filter(Service.name.ilike(f'%{sport_service}%'))
     
+    # Exclude past timeslots (only show starting after current datetime)
+    now = datetime.now(timezone.utc)
+    query = query.filter(Timeslot.start > now)
+
     # Order and paginate
     query = query.order_by(Timeslot.start)
     
@@ -115,6 +119,9 @@ def turnos_table_grouped():
             Timeslot.start < week_end
         )
     )
+    # Exclude past timeslots relative to current datetime
+    now = datetime.now(timezone.utc)
+    query = query.filter(Timeslot.start > now)
     
     # Apply same filters as turnos_table
     if category and validate_category(category):

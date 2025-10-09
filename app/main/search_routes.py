@@ -7,6 +7,7 @@ search_bp = Blueprint("search", __name__, url_prefix="/buscar")
 
 @search_bp.get("/profesionales")
 def profesionales():
+    """Lee parámetros, busca profesionales y renderiza resultados HTML."""
     q = request.args.get("q", "", type=str)
     city = request.args.get("city", type=str)
     page = request.args.get("page", 1, type=int)
@@ -16,6 +17,7 @@ def profesionales():
 
 @search_bp.get("/centros-estetica")
 def centros():
+    """Lee parámetros, busca centros de estética y renderiza resultados HTML."""
     q = request.args.get("q", "", type=str)
     city = request.args.get("city", type=str)
     page = request.args.get("page", 1, type=int)
@@ -25,9 +27,11 @@ def centros():
 
 @search_bp.get("/complejos-deportivos")
 def complejos():
+    """Lee parámetros, busca complejos deportivos y renderiza resultados HTML."""
     q = request.args.get("q", "", type=str)
     city = request.args.get("city", type=str)
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
     results = search_sports_complexes(q, city, page, per_page)
     return render_template("search/complejos.html", results=results, q=q, city=city, page=page)
+

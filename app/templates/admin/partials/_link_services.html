@@ -1,0 +1,99 @@
+<div class="p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Vincular Servicios</h2>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Profesionales -->
+    <div class="bg-white rounded-lg shadow-md p-4">
+      <h3 class="text-lg font-semibold mb-3">Profesionales ↔ Servicios</h3>
+      <form method="post" action="{{ url_for('admin.catalog_link_service') }}" class="mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="kind" value="professional" />
+        <div class="mb-2">
+          <label class="form-label">Profesional</label>
+          <select class="form-input" name="entity_id" required>
+            <option value="">Selecciona profesional...</option>
+            {% for p in professionals %}
+              <option value="{{ p.id }}">#{{ p.id }} — {{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Servicio (categoría: profesionales)</label>
+          <select class="form-input" name="service_id" required>
+            <option value="">Selecciona servicio...</option>
+            {% for s in services_prof %}
+              <option value="{{ s.id }}">#{{ s.id }} — {{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-primary">Vincular</button>
+      </form>
+
+      <div>
+        <p class="text-sm text-gray-600 mb-2">Desvincular (elige profesional y servicio):</p>
+        <form method="post" action="{{ url_for('admin.catalog_unlink_service') }}" class="flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="kind" value="professional" />
+          <select class="form-input" name="entity_id" required>
+            {% for p in professionals %}
+              <option value="{{ p.id }}">#{{ p.id }} — {{ p.name }}</option>
+            {% endfor %}
+          </select>
+          <select class="form-input" name="service_id" required>
+            {% for s in services_prof %}
+              <option value="{{ s.id }}">#{{ s.id }} — {{ s.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn-secondary">Desvincular</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Centros de Estética -->
+    <div class="bg-white rounded-lg shadow-md p-4">
+      <h3 class="text-lg font-semibold mb-3">Centros de Estética ↔ Servicios</h3>
+      <form method="post" action="{{ url_for('admin.catalog_link_service') }}" class="mb-4">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="kind" value="beauty" />
+        <div class="mb-2">
+          <label class="form-label">Centro</label>
+          <select class="form-input" name="entity_id" required>
+            <option value="">Selecciona centro...</option>
+            {% for c in centers %}
+              <option value="{{ c.id }}">#{{ c.id }} — {{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="mb-2">
+          <label class="form-label">Servicio (categoría: estética)</label>
+          <select class="form-input" name="service_id" required>
+            <option value="">Selecciona servicio...</option>
+            {% for s in services_beauty %}
+              <option value="{{ s.id }}">#{{ s.id }} — {{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <button type="submit" class="btn-primary">Vincular</button>
+      </form>
+
+      <div>
+        <p class="text-sm text-gray-600 mb-2">Desvincular (elige centro y servicio):</p>
+        <form method="post" action="{{ url_for('admin.catalog_unlink_service') }}" class="flex gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <input type="hidden" name="kind" value="beauty" />
+          <select class="form-input" name="entity_id" required>
+            {% for c in centers %}
+              <option value="{{ c.id }}">#{{ c.id }} — {{ c.name }}</option>
+            {% endfor %}
+          </select>
+          <select class="form-input" name="service_id" required>
+            {% for s in services_beauty %}
+              <option value="{{ s.id }}">#{{ s.id }} — {{ s.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn-secondary">Desvincular</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

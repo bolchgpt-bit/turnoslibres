@@ -1,4 +1,4 @@
-.PHONY: help build up down logs shell test clean migrate seed
+.PHONY: help build up down logs shell test clean migrate seed rebuild clear-timeslots clear-timeslots-script
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -8,6 +8,16 @@ help: ## Show this help message
 
 build: ## Build Docker images
 	docker-compose build
+
+rebuild: ## Rebuild images (no cache) and recreate web/worker
+	docker-compose build --no-cache web worker
+	docker-compose up -d --force-recreate web worker
+
+clear-timeslots: ## Truncate all timeslots (and related via CASCADE)
+	docker-compose exec db psql -U postgres -d turnos -c "TRUNCATE TABLE timeslots RESTART IDENTITY CASCADE;"
+
+clear-timeslots-script: ## Delete all timeslots and subscriptions via app script
+	docker-compose exec web python scripts/clear_timeslots.py
 
 up: ## Start all services
 	docker-compose up -d

@@ -2,6 +2,7 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, ValidationError
 from app.models import AppUser
+from wtforms import TextAreaField
 
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[
@@ -36,3 +37,36 @@ class RegistrationForm(FlaskForm):
     def validate_password2(self, password2):
         if self.password.data != password2.data:
             raise ValidationError('Las contraseñas no coinciden.')
+
+
+class ProfessionalForm(FlaskForm):
+    name = StringField('Nombre', validators=[DataRequired()])
+    slug = StringField('Slug', validators=[DataRequired(), Length(max=180)])
+    city = StringField('Ciudad')
+    specialties = StringField('Especialidades')
+    address = StringField('Dirección')
+    phone = StringField('Teléfono')
+    website = StringField('Website')
+    submit = SubmitField('Crear Profesional')
+
+
+class BeautyCenterForm(FlaskForm):
+    name = StringField('Nombre', validators=[DataRequired()])
+    slug = StringField('Slug', validators=[DataRequired(), Length(max=180)])
+    city = StringField('Ciudad')
+    services = TextAreaField('Servicios (texto)')
+    address = StringField('Dirección')
+    phone = StringField('Teléfono')
+    website = StringField('Website')
+    submit = SubmitField('Crear Centro de Estética')
+
+
+class SportsComplexForm(FlaskForm):
+    name = StringField('Nombre', validators=[DataRequired()])
+    slug = StringField('Slug', validators=[DataRequired(), Length(max=180)])
+    city = StringField('Ciudad')
+    sports = StringField('Deportes (texto)')
+    address = StringField('Dirección')
+    phone = StringField('Teléfono')
+    website = StringField('Website')
+    submit = SubmitField('Crear Complejo Deportivo')
