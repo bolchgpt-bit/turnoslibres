@@ -1,5 +1,6 @@
 from functools import wraps
-from flask import request, jsonify, current_app, session
+from flask import request, jsonify, current_app, session, abort
+from flask_login import current_user
 from flask_limiter.util import get_remote_address
 import time
 import hashlib
@@ -119,3 +120,23 @@ def log_security_event(event_type, details, user_id=None):
     }
     
     current_app.logger.warning(f"SECURITY_EVENT: {log_entry}")
+
+
+def superadmin_required(view_func):
+    """Decorator to ensure the current user is superadmin.
+
+    - For HTMX or JSON requests returns a 403 JSON payload.
+    - For regular requests aborts with 403.
+    """
+    @wraps(view_func)
+    def wrapped(*args, **kwargs):
+        try:
+            is_super = bool(getattr(current_user, 'is_superadmin', False))
+        except Exception:
+            is_super = False
+        if not is_super:
+            if request.headers.get('HX-Request') or 'application/json' in request.headers.get('Accept', ''):
+                return jsonify({'error': 'Unauthorized'}), 403
+            return abort(403)
+        return view_func(*args, **kwargs)
+    return wrapped

@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -78,6 +78,17 @@ def create_app(config_name=None):
     def inject_csrf_token():
         """Inyecta helper para obtener token CSRF válido para Flask-WTF."""
         return dict(csrf_token=generate_csrf)
+
+    @app.errorhandler(403)
+    def handle_403(e):
+        """Página amigable para accesos prohibidos.
+
+        - Devuelve JSON si el cliente lo espera o si es HTMX.
+        - Caso contrario, renderiza errors/403.html
+        """
+        if request.headers.get('HX-Request') or 'application/json' in request.headers.get('Accept', ''):
+            return jsonify({'error': 'Forbidden'}), 403
+        return render_template('errors/403.html'), 403
     
     # Register blueprints
     from app.main import bp as main_bp

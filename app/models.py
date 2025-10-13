@@ -49,9 +49,18 @@ class AppUser(UserMixin, db.Model):
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    # Compatibilidad: permitir usar is_super_admin además de is_superadmin
+    @property
+    def is_super_admin(self) -> bool:  # type: ignore[override]
+        return bool(self.is_superadmin)
+
+    @is_super_admin.setter
+    def is_super_admin(self, value: bool) -> None:  # type: ignore[override]
+        self.is_superadmin = bool(value)
     
     def __repr__(self):
         return f'<AppUser {self.email}>'

@@ -3,6 +3,7 @@ from app.models import Category, Complex, Field, Service, Timeslot, AppUser, Use
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash
 import random
+import os
 
 def seed_database():
     """Seed the database with initial data"""
@@ -220,6 +221,24 @@ def seed_database():
         print("Database seeded successfully!")
         print(f"Created admin user: {admin_email} / admin123")
         print(f"Created manager user: {regular_admin_email} / manager123")
+
+        # Optionally create extra superadmin from environment (do not hardcode in code)
+        extra_super_email = os.environ.get('EXTRA_SUPERADMIN_EMAIL', '').strip()
+        extra_super_pass = os.environ.get('EXTRA_SUPERADMIN_PASSWORD', '').strip()
+        if extra_super_email and extra_super_pass:
+            existing = AppUser.query.filter_by(email=extra_super_email).first()
+            if not existing:
+                extra = AppUser(email=extra_super_email, is_superadmin=True)
+                extra.set_password(extra_super_pass)
+                db.session.add(extra)
+                db.session.commit()
+                print(f"Created extra superadmin: {extra_super_email}")
+            else:
+                # Ensure superadmin flag and update password
+                existing.is_superadmin = True
+                existing.set_password(extra_super_pass)
+                db.session.commit()
+                print(f"Updated superadmin: {extra_super_email}")
 
 if __name__ == '__main__':
     seed_database()

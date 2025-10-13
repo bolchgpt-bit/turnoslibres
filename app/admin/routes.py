@@ -5,6 +5,7 @@ from app.admin.forms import LoginForm, RegistrationForm, ProfessionalForm, Beaut
 from app.models import AppUser, Complex, Category, Service, Field, Timeslot, TimeslotStatus, UserComplex, user_professionals, user_beauty_centers
 from app.models_catalog import Professional, BeautyCenter, SportsComplex
 from app import db
+from app.security import superadmin_required
 from app.utils import (
     user_can_manage_complex,
     validate_date_format,
@@ -73,6 +74,7 @@ def panel():
 
 @bp.route('/super')
 @login_required
+@superadmin_required
 def super_admin():
     """Vista exclusiva para superadministradores."""
     if not current_user.is_superadmin:
@@ -83,9 +85,8 @@ def super_admin():
 
 @bp.route('/catalog_forms')
 @login_required
+@superadmin_required
 def catalog_forms():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     return render_template(
         'admin/partials/_catalog_forms.html',
         prof_form=ProfessionalForm(),
@@ -96,10 +97,8 @@ def catalog_forms():
 
 @bp.route('/catalog/create/<kind>', methods=['POST'])
 @login_required
+@superadmin_required
 def catalog_create(kind):
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     if kind == 'professional':
         form = ProfessionalForm()
         category_slug = 'profesionales'
@@ -158,10 +157,8 @@ def catalog_create(kind):
 
 @bp.route('/link_services_form')
 @login_required
+@superadmin_required
 def link_services_form():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     pros = Professional.query.order_by(Professional.name).limit(100).all()
     centers = BeautyCenter.query.order_by(BeautyCenter.name).limit(100).all()
 
@@ -180,10 +177,8 @@ def link_services_form():
 
 @bp.route('/catalog/link_service', methods=['POST'])
 @login_required
+@superadmin_required
 def catalog_link_service():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     kind = request.form.get('kind')
     entity_id = request.form.get('entity_id', type=int)
     service_id = request.form.get('service_id', type=int)
@@ -216,10 +211,8 @@ def catalog_link_service():
 
 @bp.route('/catalog/unlink_service', methods=['POST'])
 @login_required
+@superadmin_required
 def catalog_unlink_service():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     kind = request.form.get('kind')
     entity_id = request.form.get('entity_id', type=int)
     service_id = request.form.get('service_id', type=int)
@@ -339,41 +332,33 @@ def turnos_table():
 # Super Admin Routes
 @bp.route('/categories_table')
 @login_required
+@superadmin_required
 def categories_table():
     """HTMX partial for categories management"""
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
     categories = Category.query.all()
     return render_template('admin/partials/_categories_table.html', categories=categories)
 
 @bp.route('/services_table')
 @login_required
+@superadmin_required
 def services_table():
     """HTMX partial for services management"""
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
     services = Service.query.join(Category).all()
     return render_template('admin/partials/_services_table.html', services=services)
 
 @bp.route('/complexes_table')
 @login_required
+@superadmin_required
 def complexes_table():
     """HTMX partial for complexes management"""
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
     complexes = Complex.query.all()
     return render_template('admin/partials/_complexes_table.html', complexes=complexes)
 
 @bp.route('/complexes/create', methods=['POST'])
 @login_required
+@superadmin_required
 def complexes_create():
     """Create a new Complex from Superadmin panel (HTMX-friendly)."""
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     # Sanitize inputs
     name = clean_text(request.form.get('name', ''), 200)
     slug = clean_text(request.form.get('slug', ''), 200).lower()
@@ -441,11 +426,9 @@ def complexes_create():
 
 @bp.route('/users_table')
 @login_required
+@superadmin_required
 def users_table():
     """HTMX partial for users management"""
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
     users = AppUser.query.all()
     categories = Category.query.order_by(Category.title).all()
     # Para selects dependientes según categoría seleccionada por usuario via HTMX
@@ -453,10 +436,8 @@ def users_table():
 
 @bp.route('/users/create', methods=['POST'])
 @login_required
+@superadmin_required
 def users_create():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     email = request.form.get('email', '').strip().lower()
     password = request.form.get('password', '')
     is_super = request.form.get('is_superadmin') == 'on'
@@ -531,9 +512,8 @@ def users_create():
 
 @bp.get('/users/edit')
 @login_required
+@superadmin_required
 def users_edit():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     user_id = request.args.get('user_id', type=int)
     user = AppUser.query.get_or_404(user_id)
     categories = Category.query.order_by(Category.title).all()
@@ -555,9 +535,8 @@ def users_edit():
 
 @bp.post('/users/update')
 @login_required
+@superadmin_required
 def users_update():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     user_id = request.form.get('user_id', type=int)
     email = request.form.get('email', '').strip().lower()
     password = request.form.get('password', '')
@@ -607,10 +586,8 @@ def users_update():
 
 @bp.route('/users/set_category', methods=['POST'])
 @login_required
+@superadmin_required
 def users_set_category():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     user_id = request.form.get('user_id', type=int)
     category_slug = request.form.get('category')
     user = AppUser.query.get_or_404(user_id)
@@ -629,10 +606,8 @@ def users_set_category():
 
 @bp.route('/users/link', methods=['POST'])
 @login_required
+@superadmin_required
 def users_link():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     user_id = request.form.get('user_id', type=int)
     kind = request.form.get('kind')
     entity_id = request.form.get('entity_id', type=int)
@@ -665,10 +640,8 @@ def users_link():
 
 @bp.route('/users/unlink', methods=['POST'])
 @login_required
+@superadmin_required
 def users_unlink():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
-
     user_id = request.form.get('user_id', type=int)
     kind = request.form.get('kind')
     entity_id = request.form.get('entity_id', type=int)
@@ -694,9 +667,8 @@ def users_unlink():
 
 @bp.route('/users/entities_options')
 @login_required
+@superadmin_required
 def users_entities_options():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     user_id = request.args.get('user_id', type=int)
     user = AppUser.query.get_or_404(user_id)
     if not user.category:
@@ -713,25 +685,22 @@ def users_entities_options():
 
 @bp.route('/professionals_table')
 @login_required
+@superadmin_required
 def professionals_table():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     pros = Professional.query.order_by(Professional.name).all()
     return render_template('admin/partials/_professionals_table.html', professionals=pros)
 
 @bp.route('/beauty_centers_table')
 @login_required
+@superadmin_required
 def beauty_centers_table():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     centers = BeautyCenter.query.order_by(BeautyCenter.name).all()
     return render_template('admin/partials/_beauty_centers_table.html', centers=centers)
 
 @bp.route('/users/entity_options_by_category')
 @login_required
+@superadmin_required
 def users_entity_options_by_category():
-    if not current_user.is_superadmin:
-        return jsonify({'error': 'Unauthorized'}), 403
     slug = request.args.get('category', '').strip()
     if slug == 'deportes':
         items = Complex.query.order_by(Complex.name).all()
@@ -744,3 +713,118 @@ def users_entity_options_by_category():
         return render_template('admin/partials/_user_entities_options.html', kind='professional', items=items)
     else:
         return render_template('admin/partials/_user_entities_options.html', kind='professional', items=[])
+
+
+# HTMX endpoint to create catalog entities with partial refresh
+@bp.route('/catalog/create_hx/<kind>', methods=['POST'])
+@login_required
+@superadmin_required
+def catalog_create_hx(kind):
+    # Map model and category by kind
+    kind = (kind or '').strip().lower()
+    Model = None
+    category_slug = None
+    field_map = {}
+    if kind == 'professional':
+        Model = Professional
+        category_slug = 'profesionales'
+        field_map = {
+            'name': 'name',
+            'slug': 'slug',
+            'city': 'city',
+            'address': 'address',
+            'phone': 'phone',
+            'website': 'website',
+            'specialties': 'specialties',
+        }
+    elif kind == 'beauty':
+        Model = BeautyCenter
+        category_slug = 'estetica'
+        field_map = {
+            'name': 'name',
+            'slug': 'slug',
+            'city': 'city',
+            'address': 'address',
+            'phone': 'phone',
+            'website': 'website',
+            'services': 'services',
+        }
+    elif kind == 'sports':
+        Model = SportsComplex
+        category_slug = 'deportes'
+        field_map = {
+            'name': 'name',
+            'slug': 'slug',
+            'city': 'city',
+            'address': 'address',
+            'phone': 'phone',
+            'website': 'website',
+            'sports': 'sports',
+        }
+    else:
+        return jsonify({'success': False, 'message': 'Tipo inválido'}), 400
+
+    # Extract and sanitize
+    raw = {k: (request.form.get(k) or '').strip() for k in field_map.keys()}
+    name = clean_text(raw.get('name', ''), 200)
+    slug = clean_text((raw.get('slug') or '').lower(), 180)
+    city = clean_text(raw.get('city', ''), 120) if raw.get('city') else None
+    address = clean_text(raw.get('address', ''), 200) if raw.get('address') else None
+    phone = clean_text(raw.get('phone', ''), 60) if raw.get('phone') else None
+    website = clean_text(raw.get('website', ''), 200) if raw.get('website') else None
+    extra_key = None
+    if kind == 'professional':
+        extra_key = 'specialties'
+    elif kind == 'beauty':
+        extra_key = 'services'
+    elif kind == 'sports':
+        extra_key = 'sports'
+    extra_val = clean_text(raw.get(extra_key, ''), 240) if extra_key and raw.get(extra_key) else None
+
+    message_text = None
+    message_category = None
+
+    import re
+    if not name or not slug:
+        message_text = 'Nombre y slug son requeridos'
+        message_category = 'error'
+    elif not re.match(r'^[a-z0-9\-]+$', slug):
+        message_text = 'El slug solo puede contener a-z, 0-9 y guiones (-)'
+        message_category = 'error'
+    else:
+        exists = Model.query.filter_by(slug=slug).first()
+        if exists:
+            message_text = 'Ya existe un elemento con ese slug'
+            message_category = 'error'
+        else:
+            category = Category.query.filter_by(slug=category_slug).first()
+            if not category:
+                message_text = 'Categoría no encontrada'
+                message_category = 'error'
+            else:
+                data = dict(
+                    name=name,
+                    slug=slug,
+                    city=city,
+                    address=address,
+                    phone=phone,
+                    website=website,
+                    category_id=category.id,
+                )
+                if extra_key:
+                    data[extra_key] = extra_val
+                obj = Model(**data)
+                db.session.add(obj)
+                db.session.commit()
+                message_text = 'Creado correctamente'
+                message_category = 'success'
+
+    # Return the forms partial updated for HTMX target
+    return render_template(
+        'admin/partials/_catalog_forms.html',
+        prof_form=ProfessionalForm(),
+        beauty_form=BeautyCenterForm(),
+        sports_form=SportsComplexForm(),
+        message_text=message_text,
+        message_category=message_category,
+    )
