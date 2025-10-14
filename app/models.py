@@ -160,6 +160,8 @@ class Field(db.Model):
     complex_id = db.Column(db.Integer, db.ForeignKey('complexes.id'), nullable=False)
     name = db.Column(db.String(200), nullable=False)
     sport = db.Column(db.String(100))
+    # Cantidad de jugadores por equipo (e.g., 5 para f-5, 7 para f-7)
+    team_size = db.Column(db.Integer, nullable=True)
     surface = db.Column(db.String(100))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     
@@ -169,6 +171,17 @@ class Field(db.Model):
     
     def __repr__(self):
         return f'<Field {self.name}>'
+
+    @property
+    def display_sport(self) -> str:
+        """Devuelve una etiqueta de deporte legible con modalidad si aplica.
+
+        Ej.: "futbol f-5" si sport="futbol" y team_size=5.
+        """
+        base = (self.sport or '').strip()
+        if self.team_size:
+            return f"{base} f-{self.team_size}".strip()
+        return base
 
 class Timeslot(db.Model):
     __tablename__ = 'timeslots'

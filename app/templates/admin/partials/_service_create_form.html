@@ -1,0 +1,50 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Crear Servicio (Estética)</h2>
+
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">
+      {{ message_text }}
+    </div>
+  {% endif %}
+
+  <form hx-post="{{ url_for('admin.services_create') }}" hx-target="#service-create-form" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Nombre</label>
+        <input type="text" name="name" class="form-input" placeholder="Ej: Corte de pelo" required>
+      </div>
+
+      <div>
+        <label class="form-label">Slug</label>
+        <input type="text" name="slug" class="form-input" placeholder="ej: corte-pelo" required>
+      </div>
+
+      <div>
+        <label class="form-label">Duración (min)</label>
+        <input type="number" name="duration_min" class="form-input" min="15" max="360" step="5" placeholder="30" required>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div>
+        <label class="form-label">Precio Base (opcional)</label>
+        <input type="text" name="base_price" class="form-input" placeholder="Ej: 8000">
+      </div>
+
+      <div>
+        <label class="form-label">Moneda</label>
+        <input type="text" name="currency" class="form-input" value="ARS" maxlength="3">
+      </div>
+    </div>
+
+    <p class="text-sm text-gray-500 mt-2">El servicio se creará en la categoría Estética y se vinculará automáticamente a tus centros.</p>
+
+    <div class="mt-6 flex gap-2">
+      <button type="submit" class="btn-primary">Crear servicio</button>
+      <button type="button" class="btn-secondary" onclick="this.form.reset()">Limpiar</button>
+    </div>
+  </form>
+</div>
+

@@ -76,7 +76,13 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.fields|length }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ complex.users|length }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button class="text-blue-600 hover:text-blue-900 mr-2"
+                            <button class="text-blue-600 hover:text-blue-900 mr-3" 
+                                    hx-get="{{ url_for('admin.fields_table') }}?complex_id={{ complex.id }}"
+                                    hx-target="#link-form-content" hx-swap="innerHTML"
+                                    onclick="showLinkForm({{ complex.id }})">
+                                Canchas
+                            </button>
+                            <button class="text-blue-600 hover:text-blue-900"
                                     onclick="showLinkForm({{ complex.id }})">
                                 Vincular
                             </button>

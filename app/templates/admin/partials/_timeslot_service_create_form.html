@@ -1,0 +1,56 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Crear Turno por Servicio (Profesionales)</h2>
+
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">
+      {{ message_text }}
+    </div>
+  {% endif %}
+
+  <form hx-post="{{ url_for('admin.timeslots_create_for_service') }}" hx-target="#timeslot-service-create-form" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Profesional</label>
+        <select name="professional_id" class="form-input" id="prof-select" required
+                hx-get="{{ url_for('admin.timeslot_services_options') }}"
+                hx-target="#service-select"
+                hx-trigger="change"
+                hx-include="#prof-select">
+          <option value="">Seleccionar profesional...</option>
+          {% for p in professionals %}
+            <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label">Servicio</label>
+        <select name="service_id" class="form-input" id="service-select" required>
+          <option value="">Selecciona profesional para ver servicios...</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label">Inicio</label>
+        <input type="datetime-local" name="start" class="form-input" required>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md-grid-cols-3 gap-4 mt-4">
+      <div>
+        <label class="form-label">Precio (opcional)</label>
+        <input type="text" name="price" class="form-input" placeholder="Ej: 12000">
+      </div>
+    </div>
+
+    <p class="text-sm text-gray-500 mt-2">La duración del turno se calcula automáticamente según el servicio seleccionado.</p>
+
+    <div class="mt-6 flex gap-2">
+      <button type="submit" class="btn-primary">Crear turno</button>
+      <button type="button" class="btn-secondary" onclick="this.form.reset()">Limpiar</button>
+    </div>
+  </form>
+</div>
+

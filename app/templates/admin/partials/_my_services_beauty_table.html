@@ -1,0 +1,80 @@
+<div class="p-6" id="my-beauty-services-table">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold text-gray-900">Mis Servicios (Estética)</h2>
+  </div>
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">{{ message_text }}</div>
+  {% endif %}
+
+  {% if services %}
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duración</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Precio Base</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for s in services %}
+        <tr>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ s.id }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ s.name }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ s.duration_min }} min</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+            {% if s.base_price %}
+              ${{ s.base_price }} {{ s.currency }}
+            {% else %}
+              -
+            {% endif %}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            {% if s.is_active %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Activo</span>
+            {% else %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm">
+            <div class="flex gap-2">
+              <button class="btn-secondary"
+                      hx-get="{{ url_for('admin.timeslots_quick_form_beauty') }}?service_id={{ s.id }}"
+                      hx-target="#beauty-quick-{{ s.id }}"
+                      hx-swap="innerHTML">
+                Crear turno
+              </button>
+
+              <form hx-post="{{ url_for('admin.my_beauty_services_toggle') }}"
+                    hx-target="#my-beauty-services-table" hx-swap="outerHTML">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="service_id" value="{{ s.id }}">
+                <button type="submit" class="btn-secondary">{{ 'Desactivar' if s.is_active else 'Activar' }}</button>
+              </form>
+
+              <button class="btn-secondary"
+                      hx-get="{{ url_for('admin.my_beauty_services_edit_form') }}?service_id={{ s.id }}"
+                      hx-target="#beauty-edit-{{ s.id }}"
+                      hx-swap="innerHTML">
+                Editar
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="6" class="px-6 py-2">
+            <div id="beauty-quick-{{ s.id }}"></div>
+            <div id="beauty-edit-{{ s.id }}" class="mt-2"></div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-gray-500">No hay servicios vinculados.</p>
+  {% endif %}
+</div>

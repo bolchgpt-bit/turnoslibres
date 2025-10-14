@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app.admin import bp
 from app.admin.forms import LoginForm, RegistrationForm, ProfessionalForm, BeautyCenterForm, SportsComplexForm
 from app.models import AppUser, Complex, Category, Service, Field, Timeslot, TimeslotStatus, UserComplex, user_professionals, user_beauty_centers
-from app.models_catalog import Professional, BeautyCenter, SportsComplex
+from app.models_catalog import Professional, BeautyCenter, SportsComplex, professional_services, beauty_center_services
 from app import db
 from app.security import superadmin_required
 from app.utils import (
@@ -17,6 +17,7 @@ from app.utils import (
 )
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, or_
+from markupsafe import escape
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -251,13 +252,35 @@ def turnos_table():
     page = int(request.args.get('page', 1))
     limit = min(int(request.args.get('limit', 20)), 50)
     
-    # Build base query - only show turnos from complexes the user can manage
+    # Build base query - limit to the admin's own scope
     if current_user.is_superadmin:
         query = Timeslot.query
     else:
-        # Get user's complexes
-        user_complexes = db.session.query(UserComplex.complex_id).filter_by(user_id=current_user.id).subquery()
-        query = Timeslot.query.join(Field).filter(Field.complex_id.in_(user_complexes))
+        user_category = getattr(getattr(current_user, 'category', None), 'slug', None)
+        if user_category == 'deportes':
+            user_complexes = db.session.query(UserComplex.complex_id).filter_by(user_id=current_user.id).subquery()
+            query = Timeslot.query.join(Field).filter(Field.complex_id.in_(user_complexes))
+        elif user_category == 'profesionales':
+            # services linked to the user's professionals
+            prof_ids_sq = db.select(user_professionals.c.professional_id).where(
+                user_professionals.c.user_id == current_user.id
+            ).subquery()
+            service_ids_sq = db.select(professional_services.c.service_id).where(
+                professional_services.c.professional_id.in_(db.select(prof_ids_sq))
+            )
+            query = Timeslot.query.filter(Timeslot.service_id.in_(service_ids_sq))
+        elif user_category == 'estetica':
+            # services linked to the user's beauty centers
+            bc_ids_sq = db.select(user_beauty_centers.c.beauty_center_id).where(
+                user_beauty_centers.c.user_id == current_user.id
+            ).subquery()
+            service_ids_sq = db.select(beauty_center_services.c.service_id).where(
+                beauty_center_services.c.beauty_center_id.in_(db.select(bc_ids_sq))
+            )
+            query = Timeslot.query.filter(Timeslot.service_id.in_(service_ids_sq))
+        else:
+            # No category → no results
+            query = Timeslot.query.filter(db.text('1=0'))
     
     # Date filter
     if date_str and validate_date_format(date_str):
@@ -295,8 +318,8 @@ def turnos_table():
     if status and validate_status(status):
         query = query.filter(Timeslot.status == TimeslotStatus(status))
     
-    # Complex filter
-    if complex_slug:
+    # Complex filter (solo aplica a deportes)
+    if complex_slug and ((category == 'deportes') or (not category and getattr(getattr(current_user, 'category', None), 'slug', None) == 'deportes')):
         complex_slug = clean_text(complex_slug, 200)
         query = query.join(Field).join(Complex).filter(Complex.slug.ilike(f'%{complex_slug}%'))
     
@@ -353,6 +376,955 @@ def complexes_table():
     """HTMX partial for complexes management"""
     complexes = Complex.query.all()
     return render_template('admin/partials/_complexes_table.html', complexes=complexes)
+
+
+# Estética: creación de servicios por administradores
+@bp.route('/services/create_form')
+@login_required
+def services_create_form():
+    """Parcial HTMX para crear servicios de Estética.
+
+    Permite a admins de centros de estética (o superadmin) definir servicios
+    con duración personalizada (ej.: corte 30 min, coloración 90 min).
+    """
+    # Solo disponible para superadmin o usuarios con categoría 'estetica'
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    return render_template('admin/partials/_service_create_form.html')
+
+
+@bp.route('/services/create', methods=['POST'])
+@login_required
+def services_create():
+    """Crea un nuevo Service para la categoría Estética.
+
+    Seguridad:
+    - Requiere CSRF (via template)
+    - Requiere admin con categoría 'estetica' o superadmin
+    - Valida nombre/slug, duración (15-360), y unicidad de slug por categoría
+    - Anti-IDOR: al vincular, solo se asocia a centros del usuario actual
+    """
+    # Autorización
+    is_estetica_admin = bool(getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')
+    if not (current_user.is_superadmin or is_estetica_admin):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Datos y sanitización
+    name = clean_text(request.form.get('name', ''), 200)
+    slug = clean_text((request.form.get('slug', '') or '').lower(), 180)
+    duration_min = request.form.get('duration_min', type=int)
+    price_raw = (request.form.get('base_price') or '').strip()
+    currency = clean_text(request.form.get('currency', 'ARS'), 3) or 'ARS'
+
+    message_text = ''
+    message_category = 'success'
+
+    # Validaciones básicas
+    import re
+    if not name or not slug:
+        message_text = 'Nombre y slug son requeridos'
+        message_category = 'error'
+    elif not re.match(r'^[a-z0-9\-]+$', slug):
+        message_text = 'El slug solo puede contener a-z, 0-9 y guiones (-)'
+        message_category = 'error'
+    elif not duration_min or duration_min < 15 or duration_min > 360:
+        message_text = 'Duración inválida (15–360 minutos)'
+        message_category = 'error'
+
+    # Resolver categoría Estética
+    category = None
+    if message_category == 'success':
+        category = Category.query.filter_by(slug='estetica').first()
+        if not category:
+            message_text = 'Categoría Estética no configurada'
+            message_category = 'error'
+
+    # Precio opcional
+    base_price = None
+    if message_category == 'success' and price_raw:
+        try:
+            norm = price_raw.replace(',', '.')
+            base_price = float(norm)
+            if base_price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio base inválido'
+            message_category = 'error'
+
+    # Unicidad slug por categoría
+    if message_category == 'success':
+        exists = Service.query.filter_by(category_id=category.id, slug=slug).first()
+        if exists:
+            message_text = 'Ya existe un servicio con ese slug en Estética'
+            message_category = 'error'
+
+    # Crear servicio
+    created = None
+    if message_category == 'success':
+        created = Service(
+            category_id=category.id,
+            name=name,
+            slug=slug,
+            duration_min=duration_min,
+            base_price=base_price,
+            currency=currency or 'ARS',
+            is_active=True,
+        )
+        db.session.add(created)
+        db.session.flush()
+
+        # Vincular automáticamente a centros de estética del usuario
+        try:
+            if is_estetica_admin and hasattr(current_user, 'beauty_centers'):
+                centers = list(current_user.beauty_centers)  # dynamic -> list
+                if centers:
+                    # Import aquí para evitar ciclos
+                    from app.models_catalog import BeautyCenter  # noqa: F401
+                    for bc in centers:
+                        if created not in bc.linked_services:
+                            bc.linked_services.append(created)
+        except Exception:
+            # No bloquear la creación por vínculos; seguir
+            current_app.logger.exception('Error vinculando servicio a centros del usuario')
+
+        db.session.commit()
+        message_text = f'Servicio "{escape(name)}" creado correctamente'
+
+    return render_template(
+        'admin/partials/_service_create_form.html',
+        message_text=message_text,
+        message_category=message_category,
+    )
+
+
+# Profesionales: creación de turnos por servicio
+@bp.route('/timeslots/service_create_form')
+@login_required
+def timeslots_service_create_form():
+    """Parcial HTMX con formulario para crear turnos (profesionales por servicio)."""
+    # Autorización: superadmin o usuario con categoría 'profesionales'
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Profesionales disponibles para el usuario
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        # IDs vinculados al usuario vía tabla puente
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+
+    return render_template('admin/partials/_timeslot_service_create_form.html', professionals=professionals)
+
+
+@bp.route('/timeslots/services_options')
+@login_required
+def timeslot_services_options():
+    """Devuelve <option> para combo de servicios según profesional (HTMX)."""
+    prof_id = request.args.get('professional_id', type=int)
+    if not prof_id:
+        return render_template('admin/partials/_options.html', options=[])
+
+    prof = Professional.query.get_or_404(prof_id)
+
+    # Autorización: superadmin o vinculado
+    if not current_user.is_superadmin:
+        link = db.session.execute(
+            db.select(user_professionals).where(
+                user_professionals.c.user_id == current_user.id,
+                user_professionals.c.professional_id == prof.id,
+            )
+        ).first()
+        if not link:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    # Solo servicios de categoría 'profesionales' vinculados al profesional
+    services = [s for s in prof.linked_services if s.category and s.category.slug == 'profesionales' and s.is_active]
+    services = sorted(services, key=lambda s: (s.name or '').lower())
+    return render_template('admin/partials/_options.html', options=[(s.id, f"{s.name} ({s.duration_min} min)") for s in services])
+
+
+@bp.route('/timeslots/create_for_service', methods=['POST'])
+@login_required
+def timeslots_create_for_service():
+    """Crea un turno para un servicio seleccionado (panel de profesionales).
+
+    - CSRF requerido (via hidden input en template)
+    - Autorización: superadmin o usuario vinculado al profesional
+    - Valida fecha futura, usa duración del servicio, evita solapes por servicio
+    """
+    professional_id = request.form.get('professional_id', type=int)
+    service_id = request.form.get('service_id', type=int)
+    start_str = (request.form.get('start') or '').strip()
+    price_raw = (request.form.get('price') or '').strip()
+
+    message_text = ''
+    message_category = 'success'
+
+    # Entidades
+    prof = Professional.query.get(professional_id) if professional_id else None
+    srv = Service.query.get(service_id) if service_id else None
+
+    if not prof:
+        message_text = 'Profesional inválido'
+        message_category = 'error'
+    elif not srv or not srv.is_active:
+        message_text = 'Servicio inválido'
+        message_category = 'error'
+
+    # Autorización y vínculo profesional-servicio
+    if message_category == 'success':
+        if not current_user.is_superadmin:
+            link = db.session.execute(
+                db.select(user_professionals).where(
+                    user_professionals.c.user_id == current_user.id,
+                    user_professionals.c.professional_id == prof.id,
+                )
+            ).first()
+            if not link:
+                return jsonify({'error': 'Unauthorized'}), 403
+        if srv not in prof.linked_services or not (srv.category and srv.category.slug == 'profesionales'):
+            message_text = 'El servicio no está vinculado al profesional'
+            message_category = 'error'
+
+    # Parseo de fecha
+    start_dt = None
+    if message_category == 'success':
+        try:
+            start_dt = datetime.strptime(start_str, '%Y-%m-%dT%H:%M').replace(tzinfo=timezone.utc)
+        except Exception:
+            message_text = 'Fecha y hora de inicio inválidas'
+            message_category = 'error'
+
+    # Futura
+    if message_category == 'success':
+        now = datetime.now(timezone.utc)
+        if start_dt <= now:
+            message_text = 'La hora de inicio debe ser futura'
+            message_category = 'error'
+
+    # Calcular fin con duración del servicio
+    end_dt = None
+    if message_category == 'success':
+        duration_min = int(srv.duration_min or 0)
+        if duration_min < 15 or duration_min > 360:
+            message_text = 'Duración de servicio inválida'
+            message_category = 'error'
+        else:
+            end_dt = start_dt + timedelta(minutes=duration_min)
+
+    # Precio opcional
+    price = None
+    if message_category == 'success' and price_raw:
+        try:
+            price = float(price_raw.replace(',', '.'))
+            if price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio inválido'
+            message_category = 'error'
+
+    # Evitar solapamiento en el mismo servicio
+    if message_category == 'success':
+        overlap = (
+            Timeslot.query
+            .filter(
+                Timeslot.service_id == srv.id,
+                Timeslot.start < end_dt,
+                Timeslot.end > start_dt,
+            )
+            .first()
+        )
+        if overlap:
+            message_text = 'Existe un turno que se solapa para este servicio'
+            message_category = 'error'
+
+    # Crear turno
+    if message_category == 'success':
+        t = Timeslot(
+            service_id=srv.id,
+            start=start_dt,
+            end=end_dt,
+            price=price,
+            currency=srv.currency or 'ARS',
+            status=TimeslotStatus.AVAILABLE,
+        )
+        db.session.add(t)
+        db.session.commit()
+        message_text = 'Turno creado correctamente'
+
+    # Re-render parcial
+    # Reusar el form original con lista de profesionales disponible
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+
+    return render_template(
+        'admin/partials/_timeslot_service_create_form.html',
+        professionals=professionals,
+        message_text=message_text,
+        message_category=message_category,
+    )
+
+
+# Profesionales: listado de servicios vinculados al usuario (Mis Servicios)
+@bp.route('/my_services_table')
+@login_required
+def my_services_table():
+    """HTMX partial con servicios de profesionales vinculados al admin actual."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Obtener profesionales vinculados
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+
+    # Agregar servicios únicos (solo categoría profesionales)
+    services = []
+    seen = set()
+    for p in professionals:
+        for s in p.linked_services:
+            if not s.is_active or not s.category or s.category.slug != 'profesionales':
+                continue
+            if s.id in seen:
+                continue
+            seen.add(s.id)
+            services.append(s)
+
+    services = sorted(services, key=lambda s: (s.name or '').lower())
+    return render_template('admin/partials/_my_services_table.html', services=services)
+
+
+@bp.route('/my_services/toggle', methods=['POST'])
+@login_required
+def my_services_toggle():
+    """Activa/Desactiva un servicio del alcance del admin (profesionales)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.form.get('service_id', type=int)
+    srv = Service.query.get_or_404(service_id)
+
+    # Verificar alcance
+    in_scope = False
+    if current_user.is_superadmin:
+        in_scope = True
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        if ids:
+            # ¿Algún profesional del usuario tiene este servicio?
+            linked = db.session.execute(
+                db.select(professional_services).where(
+                    professional_services.c.professional_id.in_(ids),
+                    professional_services.c.service_id == srv.id,
+                )
+            ).first()
+            in_scope = bool(linked)
+    if not in_scope:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    srv.is_active = not bool(srv.is_active)
+    db.session.commit()
+
+    # Reusar tabla
+    return my_services_table()
+
+
+@bp.route('/timeslots/quick_form')
+@login_required
+def timeslots_quick_form():
+    """Parcial con formulario rápido para crear turno por servicio (profesionales)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.args.get('service_id', type=int)
+    srv = Service.query.get_or_404(service_id)
+
+    # Profesionales disponibles que ofrecen este servicio
+    if current_user.is_superadmin:
+        professionals = (
+            Professional.query
+            .join(professional_services, professional_services.c.professional_id == Professional.id)
+            .filter(professional_services.c.service_id == srv.id)
+            .order_by(Professional.name)
+            .all()
+        )
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = (
+            Professional.query
+            .join(professional_services, professional_services.c.professional_id == Professional.id)
+            .filter(
+                Professional.id.in_(ids) if ids else db.text('1=0'),
+                professional_services.c.service_id == srv.id,
+            )
+            .order_by(Professional.name)
+            .all()
+        )
+
+    return render_template('admin/partials/_quick_timeslot_form.html', service=srv, professionals=professionals)
+
+
+@bp.route('/timeslots/create_for_service_quick', methods=['POST'])
+@login_required
+def timeslots_create_for_service_quick():
+    """Crea turno rápido y refresca 'Mis Servicios'."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    professional_id = request.form.get('professional_id', type=int)
+    service_id = request.form.get('service_id', type=int)
+    start_str = (request.form.get('start') or '').strip()
+    price_raw = (request.form.get('price') or '').strip()
+
+    message_text = ''
+    message_category = 'success'
+
+    prof = Professional.query.get(professional_id) if professional_id else None
+    srv = Service.query.get(service_id) if service_id else None
+
+    if not prof or not srv or not srv.is_active:
+        message_text = 'Datos inválidos'
+        message_category = 'error'
+
+    # Alcance usuario
+    if message_category == 'success' and not current_user.is_superadmin:
+        link = db.session.execute(
+            db.select(user_professionals).where(
+                user_professionals.c.user_id == current_user.id,
+                user_professionals.c.professional_id == prof.id,
+            )
+        ).first()
+        if not link:
+            return jsonify({'error': 'Unauthorized'}), 403
+        if srv not in prof.linked_services:
+            message_text = 'El servicio no está vinculado al profesional'
+            message_category = 'error'
+
+    # Parse fecha
+    start_dt = None
+    if message_category == 'success':
+        try:
+            start_dt = datetime.strptime(start_str, '%Y-%m-%dT%H:%M').replace(tzinfo=timezone.utc)
+        except Exception:
+            message_text = 'Fecha/hora inválida'
+            message_category = 'error'
+
+    # Futuro
+    if message_category == 'success':
+        if start_dt <= datetime.now(timezone.utc):
+            message_text = 'La hora de inicio debe ser futura'
+            message_category = 'error'
+
+    # Fin
+    end_dt = None
+    if message_category == 'success':
+        duration_min = int(srv.duration_min or 0)
+        if duration_min < 15 or duration_min > 360:
+            message_text = 'Duración de servicio inválida'
+            message_category = 'error'
+        else:
+            end_dt = start_dt + timedelta(minutes=duration_min)
+
+    # Precio
+    price = None
+    if message_category == 'success' and price_raw:
+        try:
+            price = float(price_raw.replace(',', '.'))
+            if price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio inválido'
+            message_category = 'error'
+
+    # Solape
+    if message_category == 'success':
+        overlap = (
+            Timeslot.query
+            .filter(
+                Timeslot.service_id == srv.id,
+                Timeslot.start < end_dt,
+                Timeslot.end > start_dt,
+            )
+            .first()
+        )
+        if overlap:
+            message_text = 'Existe un turno que se solapa para este servicio'
+            message_category = 'error'
+
+    if message_category == 'success':
+        t = Timeslot(
+            service_id=srv.id,
+            start=start_dt,
+            end=end_dt,
+            price=price,
+            currency=srv.currency or 'ARS',
+            status=TimeslotStatus.AVAILABLE,
+        )
+        db.session.add(t)
+        db.session.commit()
+        message_text = 'Turno creado correctamente'
+
+    # Re-render tabla con mensaje (si aplicara, se puede pasar via flash o contexto)
+    # Reconstruir servicios como en my_services_table
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+
+    services = []
+    seen = set()
+    for p in professionals:
+        for s in p.linked_services:
+            if not s.category or s.category.slug != 'profesionales':
+                continue
+            if s.id in seen:
+                continue
+            seen.add(s.id)
+            services.append(s)
+    services = sorted(services, key=lambda s: (s.name or '').lower())
+
+    return render_template('admin/partials/_my_services_table.html', services=services, message_text=message_text, message_category=message_category)
+
+
+# Estética: listado de servicios vinculados al usuario (Mis Servicios)
+@bp.route('/my_beauty_services_table')
+@login_required
+def my_beauty_services_table():
+    """HTMX partial con servicios de estética vinculados a los centros del admin actual."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Centros vinculados
+    if current_user.is_superadmin:
+        centers = BeautyCenter.query.order_by(BeautyCenter.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        centers = BeautyCenter.query.filter(BeautyCenter.id.in_(ids)).order_by(BeautyCenter.name).all() if ids else []
+
+    services = []
+    seen: set[int] = set()
+    for c in centers:
+        for s in c.linked_services:
+            if not s.category or s.category.slug != 'estetica':
+                continue
+            if s.id in seen:
+                continue
+            seen.add(s.id)
+            services.append(s)
+    services = sorted(services, key=lambda s: (s.name or '').lower())
+    return render_template('admin/partials/_my_services_beauty_table.html', services=services)
+
+
+# ----- Edición inline de servicios (Profesionales) -----
+@bp.route('/my_services/edit_form')
+@login_required
+def my_services_edit_form():
+    """Devuelve formulario inline para editar duración/precio de un servicio (profesionales)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.args.get('service_id', type=int)
+    srv = Service.query.get_or_404(service_id)
+
+    # Verificar alcance: vinculación con algún profesional del usuario y categoría correcta
+    in_scope = False
+    if current_user.is_superadmin:
+        in_scope = True
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        if ids and srv.category and srv.category.slug == 'profesionales':
+            linked = db.session.execute(
+                db.select(professional_services).where(
+                    professional_services.c.professional_id.in_(ids),
+                    professional_services.c.service_id == srv.id,
+                )
+            ).first()
+            in_scope = bool(linked)
+    if not in_scope:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    return render_template('admin/partials/_service_inline_edit_prof.html', service=srv)
+
+
+@bp.route('/my_services/update', methods=['POST'])
+@login_required
+def my_services_update():
+    """Actualiza duración y precio base de un servicio en profesionales."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.form.get('service_id', type=int)
+    duration_min = request.form.get('duration_min', type=int)
+    price_raw = (request.form.get('base_price') or '').strip()
+    currency = clean_text(request.form.get('currency', 'ARS'), 3) or 'ARS'
+
+    message_text = ''
+    message_category = 'success'
+
+    srv = Service.query.get(service_id) if service_id else None
+    if not srv or not (srv.category and srv.category.slug == 'profesionales'):
+        message_text = 'Servicio inválido'
+        message_category = 'error'
+
+    # Alcance
+    if message_category == 'success' and not current_user.is_superadmin:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        linked = None
+        if ids:
+            linked = db.session.execute(
+                db.select(professional_services).where(
+                    professional_services.c.professional_id.in_(ids),
+                    professional_services.c.service_id == srv.id,
+                )
+            ).first()
+        if not linked:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    # Validaciones
+    if message_category == 'success':
+        if not duration_min or duration_min < 15 or duration_min > 360:
+            message_text = 'Duración inválida (15–360)'
+            message_category = 'error'
+
+    base_price = None
+    if message_category == 'success' and price_raw:
+        try:
+            base_price = float(price_raw.replace(',', '.'))
+            if base_price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio base inválido'
+            message_category = 'error'
+
+    # Persistir
+    if message_category == 'success':
+        srv.duration_min = duration_min
+        srv.base_price = base_price
+        srv.currency = currency
+        db.session.commit()
+        message_text = 'Servicio actualizado'
+
+    # Refrescar tabla
+    # Reusar my_services_table pero inyectando mensajes
+    # reconstrucción como en my_services_table
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+
+    services = []
+    seen = set()
+    for p in professionals:
+        for s in p.linked_services:
+            if not s.is_active or not s.category or s.category.slug != 'profesionales':
+                continue
+            if s.id in seen:
+                continue
+            seen.add(s.id)
+            services.append(s)
+    services = sorted(services, key=lambda s: (s.name or '').lower())
+    return render_template('admin/partials/_my_services_table.html', services=services, message_text=message_text, message_category=message_category)
+
+
+# ----- Edición inline de servicios (Estética) -----
+@bp.route('/my_beauty_services/edit_form')
+@login_required
+def my_beauty_services_edit_form():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.args.get('service_id', type=int)
+    srv = Service.query.get_or_404(service_id)
+
+    in_scope = False
+    if current_user.is_superadmin:
+        in_scope = True
+    else:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        if ids and srv.category and srv.category.slug == 'estetica':
+            linked = db.session.execute(
+                db.select(beauty_center_services).where(
+                    beauty_center_services.c.beauty_center_id.in_(ids),
+                    beauty_center_services.c.service_id == srv.id,
+                )
+            ).first()
+            in_scope = bool(linked)
+    if not in_scope:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    return render_template('admin/partials/_service_inline_edit_beauty.html', service=srv)
+
+
+@bp.route('/my_beauty_services/update', methods=['POST'])
+@login_required
+def my_beauty_services_update():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.form.get('service_id', type=int)
+    duration_min = request.form.get('duration_min', type=int)
+    price_raw = (request.form.get('base_price') or '').strip()
+    currency = clean_text(request.form.get('currency', 'ARS'), 3) or 'ARS'
+
+    message_text = ''
+    message_category = 'success'
+
+    srv = Service.query.get(service_id) if service_id else None
+    if not srv or not (srv.category and srv.category.slug == 'estetica'):
+        message_text = 'Servicio inválido'
+        message_category = 'error'
+
+    if message_category == 'success' and not current_user.is_superadmin:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        linked = None
+        if ids:
+            linked = db.session.execute(
+                db.select(beauty_center_services).where(
+                    beauty_center_services.c.beauty_center_id.in_(ids),
+                    beauty_center_services.c.service_id == srv.id,
+                )
+            ).first()
+        if not linked:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    if message_category == 'success':
+        if not duration_min or duration_min < 15 or duration_min > 360:
+            message_text = 'Duración inválida (15–360)'
+            message_category = 'error'
+
+    base_price = None
+    if message_category == 'success' and price_raw:
+        try:
+            base_price = float(price_raw.replace(',', '.'))
+            if base_price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio base inválido'
+            message_category = 'error'
+
+    if message_category == 'success':
+        srv.duration_min = duration_min
+        srv.base_price = base_price
+        srv.currency = currency
+        db.session.commit()
+        message_text = 'Servicio actualizado'
+
+    # Refrescar tabla estética
+    return my_beauty_services_table()
+
+
+@bp.route('/my_beauty_services/toggle', methods=['POST'])
+@login_required
+def my_beauty_services_toggle():
+    """Activa/Desactiva un servicio en el alcance de estética del admin."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.form.get('service_id', type=int)
+    srv = Service.query.get_or_404(service_id)
+
+    in_scope = False
+    if current_user.is_superadmin:
+        in_scope = True
+    else:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        if ids:
+            linked = db.session.execute(
+                db.select(beauty_center_services).where(
+                    beauty_center_services.c.beauty_center_id.in_(ids),
+                    beauty_center_services.c.service_id == srv.id,
+                )
+            ).first()
+            in_scope = bool(linked)
+    if not in_scope:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    srv.is_active = not bool(srv.is_active)
+    db.session.commit()
+    return my_beauty_services_table()
+
+
+@bp.route('/timeslots/quick_form_beauty')
+@login_required
+def timeslots_quick_form_beauty():
+    """Parcial rápido para crear turno por servicio (estética)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.args.get('service_id', type=int)
+    srv = Service.query.get_or_404(service_id)
+
+    # Verificar que el servicio esté en alcance (algún centro del usuario)
+    if not current_user.is_superadmin:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        if ids:
+            linked = db.session.execute(
+                db.select(beauty_center_services).where(
+                    beauty_center_services.c.beauty_center_id.in_(ids),
+                    beauty_center_services.c.service_id == srv.id,
+                )
+            ).first()
+            if not linked:
+                return jsonify({'error': 'Unauthorized'}), 403
+        else:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    return render_template('admin/partials/_quick_timeslot_form_beauty.html', service=srv)
+
+
+@bp.route('/timeslots/create_for_service_quick_beauty', methods=['POST'])
+@login_required
+def timeslots_create_for_service_quick_beauty():
+    """Crea turno rápido para estética y refresca 'Mis Servicios (Estética)'."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    service_id = request.form.get('service_id', type=int)
+    start_str = (request.form.get('start') or '').strip()
+    price_raw = (request.form.get('price') or '').strip()
+
+    message_text = ''
+    message_category = 'success'
+
+    srv = Service.query.get(service_id) if service_id else None
+    if not srv or not srv.is_active:
+        message_text = 'Servicio inválido'
+        message_category = 'error'
+
+    # Alcance
+    if message_category == 'success' and not current_user.is_superadmin:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        if ids:
+            linked = db.session.execute(
+                db.select(beauty_center_services).where(
+                    beauty_center_services.c.beauty_center_id.in_(ids),
+                    beauty_center_services.c.service_id == srv.id,
+                )
+            ).first()
+            if not linked:
+                return jsonify({'error': 'Unauthorized'}), 403
+        else:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    # Parse fecha
+    start_dt = None
+    if message_category == 'success':
+        try:
+            start_dt = datetime.strptime(start_str, '%Y-%m-%dT%H:%M').replace(tzinfo=timezone.utc)
+        except Exception:
+            message_text = 'Fecha/hora inválida'
+            message_category = 'error'
+
+    # Futuro
+    if message_category == 'success' and start_dt <= datetime.now(timezone.utc):
+        message_text = 'La hora de inicio debe ser futura'
+        message_category = 'error'
+
+    # Fin
+    end_dt = None
+    if message_category == 'success':
+        duration_min = int(srv.duration_min or 0)
+        if duration_min < 15 or duration_min > 360:
+            message_text = 'Duración de servicio inválida'
+            message_category = 'error'
+        else:
+            end_dt = start_dt + timedelta(minutes=duration_min)
+
+    # Precio
+    price = None
+    if message_category == 'success' and price_raw:
+        try:
+            price = float(price_raw.replace(',', '.'))
+            if price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio inválido'
+            message_category = 'error'
+
+    # Solape
+    if message_category == 'success':
+        overlap = (
+            Timeslot.query
+            .filter(
+                Timeslot.service_id == srv.id,
+                Timeslot.start < end_dt,
+                Timeslot.end > start_dt,
+            )
+            .first()
+        )
+        if overlap:
+            message_text = 'Existe un turno que se solapa para este servicio'
+            message_category = 'error'
+
+    if message_category == 'success':
+        t = Timeslot(
+            service_id=srv.id,
+            start=start_dt,
+            end=end_dt,
+            price=price,
+            currency=srv.currency or 'ARS',
+            status=TimeslotStatus.AVAILABLE,
+        )
+        db.session.add(t)
+        db.session.commit()
+        message_text = 'Turno creado correctamente'
+
+    # Reconstruir tabla de servicios estética
+    return my_beauty_services_table()
 
 @bp.route('/complexes/create', methods=['POST'])
 @login_required
@@ -423,6 +1395,234 @@ def complexes_create():
     else:
         flash(message_text, 'success')
     return redirect(url_for('admin.super_admin'))
+
+
+# ------- Fields (Canchas) management -------
+@bp.route('/fields_table')
+@login_required
+def fields_table():
+    """HTMX partial para gestionar canchas (fields) de un complejo.
+
+    Acceso: superadmin o usuarios vinculados al complejo.
+    """
+    complex_id = request.args.get('complex_id', type=int)
+    if not complex_id:
+        return jsonify({'success': False, 'message': 'complex_id requerido'}), 400
+
+    # Autorización: superadmin o vínculo con complejo
+    if not user_can_manage_complex(getattr(current_user, 'id', None), complex_id):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    complex_obj = Complex.query.get_or_404(complex_id)
+    fields = Field.query.filter_by(complex_id=complex_id).order_by(Field.name).all()
+    return render_template('admin/partials/_fields_table.html', complex=complex_obj, fields=fields)
+
+
+@bp.route('/fields/create', methods=['POST'])
+@login_required
+def fields_create():
+    """Crea una cancha para un complejo y devuelve el parcial actualizado.
+
+    Reglas:
+    - CSRF: provisto por hidden input en template.
+    - Autorización: superadmin o usuarios vinculados al complejo (anti-IDOR).
+    - Validación y sanitización de inputs.
+    """
+    complex_id = request.form.get('complex_id', type=int)
+    if not complex_id:
+        return jsonify({'success': False, 'message': 'complex_id requerido'}), 400
+
+    # Autorización
+    if not user_can_manage_complex(getattr(current_user, 'id', None), complex_id):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    name = clean_text(request.form.get('name', ''), 200)
+    sport = clean_text(request.form.get('sport', ''), 100)
+    surface = clean_text(request.form.get('surface', ''), 100) or None
+    team_size_raw = (request.form.get('team_size') or '').strip()
+    is_active = True if (request.form.get('is_active') == 'y') else False
+
+    # Validaciones mínimas
+    message_text = ''
+    message_category = 'success'
+    team_size = None
+    if not name or not sport:
+        message_text = 'Nombre y deporte son requeridos'
+        message_category = 'error'
+    else:
+        if team_size_raw:
+            try:
+                ts = int(team_size_raw)
+                if ts < 1 or ts > 50:
+                    raise ValueError()
+                team_size = ts
+            except Exception:
+                message_text = 'Cantidad de jugadores por equipo inválida'
+                message_category = 'error'
+
+    if message_category == 'success':
+        f = Field(
+            complex_id=complex_id,
+            name=name,
+            sport=sport,
+            team_size=team_size,
+            surface=surface,
+            is_active=is_active,
+        )
+        db.session.add(f)
+        db.session.commit()
+        message_text = 'Cancha creada correctamente'
+
+    complex_obj = Complex.query.get_or_404(complex_id)
+    fields = Field.query.filter_by(complex_id=complex_id).order_by(Field.name).all()
+    # Responder con el parcial actualizado para el modal HTMX
+    return render_template(
+        'admin/partials/_fields_table.html',
+        complex=complex_obj,
+        fields=fields,
+        message_text=message_text,
+        message_category=message_category,
+    )
+
+# ------- Timeslots (Turnos) creation -------
+@bp.route('/timeslots/create_form')
+@login_required
+def timeslots_create_form():
+    """Parcial HTMX con el formulario para crear turnos (deportes)."""
+    # Restringir a categoría 'deportes' (o superadmin)
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+    if current_user.is_superadmin:
+        available_fields = Field.query.order_by(Field.name).all()
+    else:
+        user_complexes = db.session.query(UserComplex.complex_id).filter_by(user_id=current_user.id).subquery()
+        available_fields = (
+            Field.query
+            .filter(Field.complex_id.in_(user_complexes))
+            .order_by(Field.name)
+            .all()
+        )
+    return render_template('admin/partials/_timeslot_create_form.html', available_fields=available_fields)
+
+@bp.route('/timeslots/create', methods=['POST'])
+@login_required
+def timeslots_create():
+    """Crea un turno para una cancha seleccionada.
+
+    Seguridad:
+    - CSRF requerido (via hidden input en template)
+    - Autorización: superadmin o usuario vinculado al complejo (anti-IDOR)
+    - Validaciones: fecha/hora futuras, duración válida, no solapar con turnos existentes
+    """
+    # Restringir a categoría 'deportes' (o superadmin)
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+    field_id = request.form.get('field_id', type=int)
+    start_str = (request.form.get('start') or '').strip()
+    duration_min = request.form.get('duration_min', type=int)
+    price_raw = (request.form.get('price') or '').strip()
+
+    # Recolectar campos disponibles para re-render del formulario
+    if current_user.is_superadmin:
+        available_fields = Field.query.order_by(Field.name).all()
+    else:
+        user_complexes = db.session.query(UserComplex.complex_id).filter_by(user_id=current_user.id).subquery()
+        available_fields = (
+            Field.query
+            .filter(Field.complex_id.in_(user_complexes))
+            .order_by(Field.name)
+            .all()
+        )
+
+    message_text = ''
+    message_category = 'success'
+
+    # Validaciones básicas
+    field = Field.query.get(field_id) if field_id else None
+    if not field:
+        message_text = 'Cancha inválida'
+        message_category = 'error'
+    elif not user_can_manage_complex(getattr(current_user, 'id', None), field.complex_id):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Parseo fecha/hora local (datetime-local => YYYY-MM-DDTHH:MM)
+    start_dt = None
+    if message_category == 'success':
+        try:
+            # Interpretar como hora local y almacenar como UTC aware
+            start_dt = datetime.strptime(start_str, '%Y-%m-%dT%H:%M')
+            start_dt = start_dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            message_text = 'Fecha y hora de inicio inválidas'
+            message_category = 'error'
+
+    # Duración mínima
+    if message_category == 'success':
+        if not duration_min or duration_min < 15 or duration_min > 360:
+            message_text = 'Duración inválida (15–360 minutos)'
+            message_category = 'error'
+
+    # No crear en el pasado
+    if message_category == 'success':
+        now = datetime.now(timezone.utc)
+        if start_dt <= now:
+            message_text = 'La hora de inicio debe ser futura'
+            message_category = 'error'
+
+    # Calcular fin
+    end_dt = None
+    if message_category == 'success':
+        end_dt = start_dt + timedelta(minutes=duration_min)
+
+    # Precio opcional
+    price = None
+    if message_category == 'success' and price_raw:
+        try:
+            # Permitir coma o punto como separador
+            norm = price_raw.replace(',', '.')
+            price = float(norm)
+            if price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio inválido'
+            message_category = 'error'
+
+    # Evitar solapamiento en la misma cancha
+    if message_category == 'success':
+        overlap = (
+            Timeslot.query
+            .filter(
+                Timeslot.field_id == field.id,
+                Timeslot.start < end_dt,
+                Timeslot.end > start_dt,
+            )
+            .first()
+        )
+        if overlap:
+            message_text = 'Existe un turno que se solapa en esa franja'
+            message_category = 'error'
+
+    # Crear turno
+    if message_category == 'success':
+        t = Timeslot(
+            field_id=field.id,
+            start=start_dt,
+            end=end_dt,
+            price=price,
+            currency='ARS',
+            status=TimeslotStatus.AVAILABLE,
+        )
+        db.session.add(t)
+        db.session.commit()
+        message_text = 'Turno creado correctamente'
+
+    # Re-render del formulario (parcial HTMX)
+    return render_template(
+        'admin/partials/_timeslot_create_form.html',
+        available_fields=available_fields,
+        message_text=message_text,
+        message_category=message_category,
+    )
 
 @bp.route('/users_table')
 @login_required
