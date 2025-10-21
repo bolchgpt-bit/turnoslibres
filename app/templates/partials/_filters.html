@@ -1,4 +1,4 @@
-<form hx-get="{{ url_for('ui.turnos_table') }}" hx-target="#turnos-container" hx-trigger="change, submit">
+<form id="filters-form">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div>
             <label class="form-label">Fecha</label>
@@ -31,9 +31,22 @@
         </div>
     </div>
     
-    <div class="flex gap-2">
-        <button type="submit" class="btn-primary">Filtrar</button>
-        <button type="button" onclick="this.form.reset(); htmx.trigger(this.form, 'submit')" class="btn-secondary">
+    <div class="flex flex-wrap gap-2 items-center">
+        <button type="button" class="btn-primary"
+                hx-get="{{ url_for('ui.turnos_table') }}"
+                hx-target="#turnos-container"
+                hx-include="[name='date'], [name='status'], [name='complex_slug'], [name='sport_service'], [name='category']"
+                hx-push-url="true">
+            Ver Día
+        </button>
+        <button type="button" class="btn-secondary"
+                hx-get="{{ url_for('ui.turnos_table_grouped') }}"
+                hx-target="#turnos-container"
+                hx-include="[name='date'], [name='status'], [name='complex_slug'], [name='sport_service'], [name='category']"
+                hx-push-url="true">
+            Ver Semana
+        </button>
+        <button type="button" class="btn-secondary" onclick="this.form.reset()">
             Limpiar
         </button>
     </div>

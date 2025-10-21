@@ -44,7 +44,8 @@
                                 hx-get="{{ url_for('ui.turnos_table') }}"
                                 hx-target="#turnos-container"
                                 hx-include="[name='date'], [name='category'], [name='status'], [name='complex_slug'], [name='sport_service']"
-                                hx-vals='{"page": "{{ page - 1 }}"}'>
+                                hx-vals='{"page": "{{ page - 1 }}"}'
+                                hx-push-url="true">
                             Anterior
                         </button>
                     {% endif %}
@@ -58,7 +59,8 @@
                                 hx-get="{{ url_for('ui.turnos_table') }}"
                                 hx-target="#turnos-container"
                                 hx-include="[name='date'], [name='category'], [name='status'], [name='complex_slug'], [name='sport_service']"
-                                hx-vals='{"page": "{{ page + 1 }}"}'>
+                                hx-vals='{"page": "{{ page + 1 }}"}'
+                                hx-push-url="true">
                             Siguiente
                         </button>
                     {% endif %}
