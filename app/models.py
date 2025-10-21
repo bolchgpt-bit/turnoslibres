@@ -24,16 +24,43 @@ class AppUser(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_superadmin = db.Column(db.Boolean, default=False, nullable=False)
+    # Categoría operativa del usuario para administración (deportes/estetica/profesionales)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'), nullable=True)
+    category = db.relationship('Category')
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     # Relationships
     complexes = db.relationship('Complex', secondary='user_complexes', back_populates='users')
+    # Nuevas relaciones de administración para catálogo no-deportes
+    professionals = db.relationship(
+        'Professional',
+        secondary='user_professionals',
+        primaryjoin='AppUser.id==user_professionals.c.user_id',
+        secondaryjoin='Professional.id==user_professionals.c.professional_id',
+        lazy='dynamic'
+    )
+    beauty_centers = db.relationship(
+        'BeautyCenter',
+        secondary='user_beauty_centers',
+        primaryjoin='AppUser.id==user_beauty_centers.c.user_id',
+        secondaryjoin='BeautyCenter.id==user_beauty_centers.c.beauty_center_id',
+        lazy='dynamic'
+    )
     
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
-    
+
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+    # Compatibilidad: permitir usar is_super_admin además de is_superadmin
+    @property
+    def is_super_admin(self) -> bool:  # type: ignore[override]
+        return bool(self.is_superadmin)
+
+    @is_super_admin.setter
+    def is_super_admin(self, value: bool) -> None:  # type: ignore[override]
+        self.is_superadmin = bool(value)
     
     def __repr__(self):
         return f'<AppUser {self.email}>'
@@ -64,6 +91,19 @@ class UserComplex(db.Model):
     
     user_id = db.Column(db.Integer, db.ForeignKey('app_users.id'), primary_key=True)
     complex_id = db.Column(db.Integer, db.ForeignKey('complexes.id'), primary_key=True)
+
+# Tablas de vínculo para catálogo (profesionales/centros de estética)
+user_professionals = db.Table(
+    'user_professionals',
+    db.Column('user_id', db.Integer, db.ForeignKey('app_users.id'), primary_key=True),
+    db.Column('professional_id', db.Integer, db.ForeignKey('professionals.id'), primary_key=True),
+)
+
+user_beauty_centers = db.Table(
+    'user_beauty_centers',
+    db.Column('user_id', db.Integer, db.ForeignKey('app_users.id'), primary_key=True),
+    db.Column('beauty_center_id', db.Integer, db.ForeignKey('beauty_centers.id'), primary_key=True),
+)
 
 class Category(db.Model):
     __tablename__ = 'categories'
@@ -120,6 +160,8 @@ class Field(db.Model):
     complex_id = db.Column(db.Integer, db.ForeignKey('complexes.id'), nullable=False)
     name = db.Column(db.String(200), nullable=False)
     sport = db.Column(db.String(100))
+    # Cantidad de jugadores por equipo (e.g., 5 para f-5, 7 para f-7)
+    team_size = db.Column(db.Integer, nullable=True)
     surface = db.Column(db.String(100))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     
@@ -129,6 +171,17 @@ class Field(db.Model):
     
     def __repr__(self):
         return f'<Field {self.name}>'
+
+    @property
+    def display_sport(self) -> str:
+        """Devuelve una etiqueta de deporte legible con modalidad si aplica.
+
+        Ej.: "futbol f-5" si sport="futbol" y team_size=5.
+        """
+        base = (self.sport or '').strip()
+        if self.team_size:
+            return f"{base} f-{self.team_size}".strip()
+        return base
 
 class Timeslot(db.Model):
     __tablename__ = 'timeslots'
@@ -171,6 +224,8 @@ class Subscription(db.Model):
     end_window = db.Column(db.DateTime(timezone=True), nullable=True)
     token_unsubscribe = db.Column(db.String(36), unique=True, nullable=False, default=lambda: str(uuid.uuid4()))
     status = db.Column(db.Enum(SubscriptionStatus), default=SubscriptionStatus.ACTIVE, nullable=False)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    criteria = db.Column(db.JSON, nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
     # Relationships

@@ -1,0 +1,47 @@
+<div class="p-6">
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-semibold text-gray-900">Profesionales</h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ciudad</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+          <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Servicios</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for p in professionals %}
+        <tr>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ p.id }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ p.name }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ p.city or '-' }}</td>
+          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ p.category.title if p.category else '-' }}</td>
+          <td class="px-6 py-4 text-sm text-gray-900">
+            {% if p.linked_services %}
+              <div class="flex flex-wrap gap-2">
+                {% for s in p.linked_services %}
+                <form method="post" action="{{ url_for('admin.catalog_unlink_service') }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                  <input type="hidden" name="kind" value="professional" />
+                  <input type="hidden" name="entity_id" value="{{ p.id }}" />
+                  <input type="hidden" name="service_id" value="{{ s.id }}" />
+                  <button class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 hover:bg-blue-200" title="Desvincular">
+                    {{ s.name }} ✕
+                  </button>
+                </form>
+                {% endfor %}
+              </div>
+            {% else %}
+              <span class="text-gray-400">Sin servicios</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

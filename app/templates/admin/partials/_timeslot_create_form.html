@@ -1,0 +1,47 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Crear Turno</h2>
+
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">
+      {{ message_text }}
+    </div>
+  {% endif %}
+
+  <form hx-post="{{ url_for('admin.timeslots_create') }}" hx-target="#timeslot-create-form" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Cancha</label>
+        <select name="field_id" class="form-input" required>
+          <option value="">Seleccionar cancha...</option>
+          {% for f in available_fields %}
+            <option value="{{ f.id }}">{{ f.complex.name }} — {{ f.name }}{% if f.display_sport %} ({{ f.display_sport }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label">Inicio</label>
+        <input type="datetime-local" name="start" class="form-input" required>
+      </div>
+
+      <div>
+        <label class="form-label">Duración (min)</label>
+        <input type="number" name="duration_min" class="form-input" min="15" max="360" step="15" value="60" required>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div>
+        <label class="form-label">Precio (opcional)</label>
+        <input type="text" name="price" class="form-input" placeholder="Ej: 5000">
+      </div>
+    </div>
+
+    <div class="mt-6 flex gap-2">
+      <button type="submit" class="btn-primary">Crear turno</button>
+      <button type="button" class="btn-secondary" onclick="this.form.reset()">Limpiar</button>
+    </div>
+  </form>
+</div>

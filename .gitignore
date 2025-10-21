@@ -165,3 +165,9 @@ backup_*.sql
 +.env.*
 +!.env.example
 +!.env.production.example
+
+# Env files
+.env
+.env.*
+!.env.example
+!.env.production.example

@@ -18,9 +18,10 @@ class NotificationService:
             return
         
         # Find active subscriptions for this timeslot
-        subscriptions = Subscription.query.filter_by(
-            timeslot_id=timeslot_id,
-            status=SubscriptionStatus.ACTIVE
+        subscriptions = Subscription.query.filter(
+            Subscription.timeslot_id == timeslot_id,
+            Subscription.status == SubscriptionStatus.ACTIVE,
+            Subscription.is_active.is_(True),
         ).all()
         
         # Also find subscriptions by criteria (field/service + time window)
@@ -30,17 +31,21 @@ class NotificationService:
                 Subscription.field_id == timeslot.field_id,
                 Subscription.timeslot_id.is_(None),
                 Subscription.status == SubscriptionStatus.ACTIVE,
+                Subscription.is_active.is_(True),
                 Subscription.start_window <= timeslot.start,
                 Subscription.end_window >= timeslot.end
             ).all()
+
         elif timeslot.service_id:
             criteria_subscriptions = Subscription.query.filter(
                 Subscription.service_id == timeslot.service_id,
                 Subscription.timeslot_id.is_(None),
                 Subscription.status == SubscriptionStatus.ACTIVE,
+                Subscription.is_active.is_(True),
                 Subscription.start_window <= timeslot.start,
                 Subscription.end_window >= timeslot.end
             ).all()
+
         
         all_subscriptions = subscriptions + criteria_subscriptions
         
@@ -57,10 +62,11 @@ class NotificationService:
     def create_timeslot_subscription(email, timeslot_id):
         """Create a subscription for a specific timeslot"""
         # Check if already subscribed
-        existing = Subscription.query.filter_by(
-            email=email,
-            timeslot_id=timeslot_id,
-            status=SubscriptionStatus.ACTIVE
+        existing = Subscription.query.filter(
+            Subscription.email == email,
+            Subscription.timeslot_id == timeslot_id,
+            Subscription.status == SubscriptionStatus.ACTIVE,
+            Subscription.is_active.is_(True),
         ).first()
         
         if existing:

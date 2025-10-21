@@ -1,0 +1,138 @@
+<div class="p-6">
+  {% if message_text %}
+  <div id="inline-alert" class="mb-4 alert {{ 'alert-error' if message_category=='error' else 'alert-success' }}">
+    {{ message_text }}
+  </div>
+  <script>
+  (function(){
+    var el = document.getElementById('inline-alert');
+    if(!el) return;
+    el.style.transition = 'opacity 0.5s ease';
+    setTimeout(function(){
+      el.style.opacity = '0';
+      setTimeout(function(){ if(el && el.parentNode) el.parentNode.removeChild(el); }, 600);
+    }, 3000);
+  })();
+  </script>
+  {% endif %}
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Editar Usuario</h2>
+  {% set has_category = user.category is not none %}
+  <form method="post"
+        action="{{ url_for('admin.users_update') }}"
+        hx-post="{{ url_for('admin.users_update') }}"
+        hx-target="#content-area"
+        hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="user_id" value="{{ user.id }}"/>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-input" value="{{ user.email }}">
+      </div>
+      <div>
+        <label class="form-label">Nueva contraseña (opcional)</label>
+        <input type="password" name="password" class="form-input" placeholder="dejar en blanco para no cambiar">
+      </div>
+      <div class="flex items-end">
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" name="is_superadmin" class="form-checkbox" {% if user.is_superadmin %}checked{% endif %}>
+          <span>Super Admin</span>
+        </label>
+      </div>
+    </div>
+
+    <div id="edit-user-scope" class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 {% if user.is_superadmin %}hidden{% endif %}">
+      <div>
+        <label class="form-label">Categoría</label>
+        <select class="form-input" name="category" id="edit-user-category"
+                hx-get="{{ url_for('admin.users_entity_options_by_category') }}"
+                hx-target="#edit-user-entity-select"
+                hx-trigger="change"
+                hx-include="#edit-user-category">
+          <option value="">—</option>
+          {% for cat in categories %}
+            <option value="{{ cat.slug }}" {% if user.category and user.category.id==cat.id %}selected{% endif %}>{{ cat.title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div id="edit-user-entity-select">
+        {% if items %}
+          {% set selected_id = None %}
+          {% if kind == 'complex' and user.complexes %}
+            {% set selected_id = (user.complexes[0].id if user.complexes|length > 0 else None) %}
+          {% elif kind == 'beauty' %}
+            {% set selected_id = (user.beauty_centers.first().id if user.beauty_centers.first() else None) %}
+          {% elif kind == 'professional' %}
+            {% set selected_id = (user.professionals.first().id if user.professionals.first() else None) %}
+          {% endif %}
+          {% include 'admin/partials/_user_entities_options.html' with context %}
+        {% else %}
+          <select class="form-input" disabled>
+            <option>Selecciona categoría para elegir entidad…</option>
+          </select>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if not user.is_superadmin and has_category %}
+    <div class="mt-4">
+      <div class="text-sm text-gray-700 mb-2">Vínculo actual:
+        {% if user.category.slug == 'deportes' and user.complexes %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">{{ user.complexes[0].name }}</span>
+          <form method="post" class="inline"
+                hx-post="{{ url_for('admin.users_unlink') }}"
+                hx-target="#content-area" hx-swap="innerHTML">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="user_id" value="{{ user.id }}"/>
+            <input type="hidden" name="kind" value="complex"/>
+            <input type="hidden" name="entity_id" value="{{ user.complexes[0].id }}"/>
+            <button class="btn-secondary">Desvincular</button>
+          </form>
+        {% elif user.category.slug == 'estetica' and user.beauty_centers.first() %}
+          {% set cur = user.beauty_centers.first() %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800">{{ cur.name }}</span>
+          <form method="post" class="inline"
+                hx-post="{{ url_for('admin.users_unlink') }}"
+                hx-target="#content-area" hx-swap="innerHTML">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="user_id" value="{{ user.id }}"/>
+            <input type="hidden" name="kind" value="beauty"/>
+            <input type="hidden" name="entity_id" value="{{ cur.id }}"/>
+            <button class="btn-secondary">Desvincular</button>
+          </form>
+        {% elif user.category.slug == 'profesionales' and user.professionals.first() %}
+          {% set curp = user.professionals.first() %}
+          <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">{{ curp.name }}</span>
+          <form method="post" class="inline"
+                hx-post="{{ url_for('admin.users_unlink') }}"
+                hx-target="#content-area" hx-swap="innerHTML">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            <input type="hidden" name="user_id" value="{{ user.id }}"/>
+            <input type="hidden" name="kind" value="professional"/>
+            <input type="hidden" name="entity_id" value="{{ curp.id }}"/>
+            <button class="btn-secondary">Desvincular</button>
+          </form>
+        {% else %}
+          <span class="text-gray-500">Sin vínculo</span>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="mt-4 flex gap-2">
+      <button type="submit" class="btn-primary">Guardar</button>
+      <button type="button" class="btn-secondary" hx-get="{{ url_for('admin.users_table') }}" hx-target="#content-area" hx-swap="innerHTML">Cancelar</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  const cb = document.querySelector('input[name="is_superadmin"]');
+  const scope = document.getElementById('edit-user-scope');
+  if (!cb || !scope) return;
+  const onToggle = () => cb.checked ? scope.classList.add('hidden') : scope.classList.remove('hidden');
+  cb.addEventListener('change', onToggle);
+})();
+</script>

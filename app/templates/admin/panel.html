@@ -60,10 +60,18 @@
             <div>
                 <label class="form-label">Categoría</label>
                 <select name="category" class="form-input">
-                    <option value="">Todas</option>
-                    <option value="deportes" {% if request.args.get('category') == 'deportes' %}selected{% endif %}>Deportes</option>
-                    <option value="estetica" {% if request.args.get('category') == 'estetica' %}selected{% endif %}>Estética</option>
-                    <option value="profesionales" {% if request.args.get('category') == 'profesionales' %}selected{% endif %}>Profesionales</option>
+                    {% if current_user.is_superadmin %}
+                      <option value="">Todas</option>
+                      <option value="deportes" {% if request.args.get('category') == 'deportes' %}selected{% endif %}>Deportes</option>
+                      <option value="estetica" {% if request.args.get('category') == 'estetica' %}selected{% endif %}>Estética</option>
+                      <option value="profesionales" {% if request.args.get('category') == 'profesionales' %}selected{% endif %}>Profesionales</option>
+                    {% else %}
+                      {% if current_user.category and current_user.category.slug %}
+                        <option value="{{ current_user.category.slug }}" selected>{{ 'Deportes' if current_user.category.slug=='deportes' else ('Estética' if current_user.category.slug=='estetica' else 'Profesionales') }}</option>
+                      {% else %}
+                        <option value="">Sin categoría</option>
+                      {% endif %}
+                    {% endif %}
                 </select>
             </div>
             
@@ -78,12 +86,14 @@
                 </select>
             </div>
             
+            {% if current_user.is_superadmin or (current_user.category and current_user.category.slug == 'deportes') %}
             <div>
                 <label class="form-label">Complejo</label>
                 <input type="text" name="complex_slug" class="form-input" 
                        placeholder="Buscar complejo..." 
                        value="{{ request.args.get('complex_slug', '') }}">
             </div>
+            {% endif %}
         </div>
         
         <div class="flex gap-2">
@@ -94,6 +104,62 @@
         </div>
     </form>
 </div>
+
+<!-- Crear Turno -->
+{% if current_user.category and current_user.category.slug == 'estetica' %}
+<div id="service-create-form"
+     class="mb-6"
+     hx-get="{{ url_for('admin.services_create_form') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando formulario para crear servicio (Estética)...</p>
+  </div>
+  </div>
+<div class="bg-white rounded-lg shadow-md mb-6" id="my-beauty-services-table"
+     hx-get="{{ url_for('admin.my_beauty_services_table') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6">
+    <p class="text-gray-500">Cargando mis servicios (Estética)...</p>
+  </div>
+</div>
+{% endif %}
+
+{% if current_user.category and current_user.category.slug == 'profesionales' %}
+<div id="timeslot-service-create-form"
+     class="mb-6"
+     hx-get="{{ url_for('admin.timeslots_service_create_form') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando formulario para crear turno por servicio...</p>
+  </div>
+</div>
+{% endif %}
+
+{% if current_user.is_superadmin or (current_user.category and current_user.category.slug == 'deportes') %}
+<div id="timeslot-create-form"
+     hx-get="{{ url_for('admin.timeslots_create_form') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando formulario para crear turno...</p>
+  </div>
+  </div>
+{% endif %}
+
+<!-- Mis Servicios (Profesionales) -->
+{% if current_user.category and current_user.category.slug == 'profesionales' %}
+<div class="bg-white rounded-lg shadow-md mb-6" id="my-services-table"
+     hx-get="{{ url_for('admin.my_services_table') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6">
+    <p class="text-gray-500">Cargando mis servicios...</p>
+  </div>
+</div>
+{% endif %}
 
 <!-- Turnos Table -->
 <div id="turnos-table" class="bg-white rounded-lg shadow-md">

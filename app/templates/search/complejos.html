@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 class="mb-3">Buscar complejos deportivos</h1>
+
+<nav class="tabs mb-3">
+  <a href="{{ url_for('search.profesionales', q=q, city=city) }}">Profesionales</a>
+  <a href="{{ url_for('search.centros', q=q, city=city) }}">Centros de estética</a>
+  <a href="{{ url_for('search.complejos', q=q, city=city) }}" aria-current="page">Complejos deportivos</a>
+</nav>
+
+<form method="get" class="search-form">
+  <input name="q" value="{{ q|e }}" placeholder="Ej: fútbol, pádel..." />
+  <input name="city" value="{{ city|e if city }}" placeholder="Ciudad" />
+  <button type="submit">Buscar</button>
+</form>
+
+{% if results %}
+<table class="table mt-3">
+  <thead><tr><th>Nombre</th><th>Ciudad</th><th>Deportes</th></tr></thead>
+  <tbody>
+    {% for r in results %}
+    <tr><td>{{ r.name }}</td><td>{{ r.city or '-' }}</td><td>{{ r.sports or '-' }}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="empty mt-3">Por el momento no hay resultados para tu búsqueda.</div>
+{% endif %}
+{% endblock %}

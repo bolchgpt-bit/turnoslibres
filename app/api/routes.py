@@ -1,7 +1,7 @@
-from flask import request, jsonify, current_app
+﻿from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
 from app.api import bp
-from app.models import Timeslot, TimeslotStatus, AppUser, Complex, Category, Service, Field, UserComplex, Subscription
+from app.models import Timeslot, TimeslotStatus, AppUser, Complex, Category, Service, Field, UserComplex, Subscription, SubscriptionStatus
 from app.utils import user_can_manage_complex, validate_email, clean_text
 from app.services.notification_service import NotificationService
 from app.security import (
@@ -15,6 +15,11 @@ from app.security import (
 from app import db, limiter
 import uuid
 import json
+
+@bp.get('/health')
+def health():
+    """Endpoint de salud del API."""
+    return jsonify({"status": "ok"}), 200
 
 @bp.route('/lead', methods=['POST'])
 @limiter.limit("3 per minute")
@@ -45,7 +50,7 @@ def lead():
     if not validate_email(contact_email):
         return jsonify({
             'success': False, 
-            'message': 'Email no válido.'
+            'message': 'Email no vÃ¡lido.'
         }), 400
     
     try:
@@ -55,7 +60,7 @@ def lead():
     except (ValueError, TypeError):
         return jsonify({
             'success': False, 
-            'message': 'Cantidad de servicios debe ser un número entre 1 y 100.'
+            'message': 'Cantidad de servicios debe ser un nÃºmero entre 1 y 100.'
         }), 400
     
     # Validate category
@@ -63,7 +68,7 @@ def lead():
     if not category_obj:
         return jsonify({
             'success': False, 
-            'message': 'Categoría no válida.'
+            'message': 'CategorÃ­a no vÃ¡lida.'
         }), 400
     
     # Here you would typically save to a leads table or send an email
@@ -72,7 +77,7 @@ def lead():
     
     return jsonify({
         'success': True, 
-        'message': '¡Solicitud enviada correctamente! Nos pondremos en contacto contigo pronto.'
+        'message': 'Â¡Solicitud enviada correctamente! Nos pondremos en contacto contigo pronto.'
     })
 
 @bp.route('/admin/turnos/<int:timeslot_id>/confirm', methods=['POST'])
@@ -91,7 +96,7 @@ def confirm_turno(timeslot_id):
         if not current_user.is_superadmin:
             return jsonify({'success': False, 'message': 'Sin permisos'}), 403
     else:
-        return jsonify({'success': False, 'message': 'Turno inválido'}), 400
+        return jsonify({'success': False, 'message': 'Turno invÃ¡lido'}), 400
     
     if complex_id and not user_can_manage_complex(current_user.id, complex_id):
         return jsonify({'success': False, 'message': 'Sin permisos para este complejo'}), 403
@@ -110,7 +115,7 @@ def confirm_turno(timeslot_id):
     
     return jsonify({
         'success': True, 
-        'message': f'Turno confirmado. Código: {timeslot.reservation_code}'
+        'message': f'Turno confirmado. CÃ³digo: {timeslot.reservation_code}'
     })
 
 @bp.route('/admin/turnos/<int:timeslot_id>/release', methods=['POST'])
@@ -127,7 +132,7 @@ def release_turno(timeslot_id):
         if not current_user.is_superadmin:
             return jsonify({'success': False, 'message': 'Sin permisos'}), 403
     else:
-        return jsonify({'success': False, 'message': 'Turno inválido'}), 400
+        return jsonify({'success': False, 'message': 'Turno invÃ¡lido'}), 400
     
     if complex_id and not user_can_manage_complex(current_user.id, complex_id):
         return jsonify({'success': False, 'message': 'Sin permisos para este complejo'}), 403
@@ -163,7 +168,7 @@ def create_category():
     description = clean_text(data.get('description', ''), 500)
     
     if not slug or not title:
-        return jsonify({'success': False, 'message': 'Slug y título son requeridos'}), 400
+        return jsonify({'success': False, 'message': 'Slug y tÃ­tulo son requeridos'}), 400
     
     # Check if slug already exists
     if Category.query.filter_by(slug=slug).first():
@@ -173,7 +178,7 @@ def create_category():
     db.session.add(category)
     db.session.commit()
     
-    return jsonify({'success': True, 'message': 'Categoría creada correctamente'})
+    return jsonify({'success': True, 'message': 'CategorÃ­a creada correctamente'})
 
 @bp.route('/admin/categories/<int:category_id>', methods=['DELETE'])
 @login_required
@@ -188,13 +193,13 @@ def delete_category(category_id):
     if category.services:
         return jsonify({
             'success': False, 
-            'message': 'No se puede eliminar una categoría con servicios asociados'
+            'message': 'No se puede eliminar una categorÃ­a con servicios asociados'
         }), 400
     
     db.session.delete(category)
     db.session.commit()
     
-    return jsonify({'success': True, 'message': 'Categoría eliminada correctamente'})
+    return jsonify({'success': True, 'message': 'CategorÃ­a eliminada correctamente'})
 
 @bp.route('/admin/complex-category/link', methods=['POST'])
 @login_required
@@ -216,9 +221,9 @@ def link_complex_category():
     if category not in complex_obj.categories:
         complex_obj.categories.append(category)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Vinculación creada correctamente'})
+        return jsonify({'success': True, 'message': 'VinculaciÃ³n creada correctamente'})
     else:
-        return jsonify({'success': False, 'message': 'Ya están vinculados'}), 400
+        return jsonify({'success': False, 'message': 'Ya estÃ¡n vinculados'}), 400
 
 @bp.route('/admin/complex-category/unlink', methods=['POST'])
 @login_required
@@ -240,9 +245,9 @@ def unlink_complex_category():
     if category in complex_obj.categories:
         complex_obj.categories.remove(category)
         db.session.commit()
-        return jsonify({'success': True, 'message': 'Vinculación eliminada correctamente'})
+        return jsonify({'success': True, 'message': 'VinculaciÃ³n eliminada correctamente'})
     else:
-        return jsonify({'success': False, 'message': 'No están vinculados'}), 400
+        return jsonify({'success': False, 'message': 'No estÃ¡n vinculados'}), 400
 
 @bp.route('/subscribe', methods=['POST'])
 @limiter.limit("5 per minute")
@@ -251,7 +256,7 @@ def subscribe():
     # Honeypot check
     if not honeypot_check(request.form):
         log_security_event('honeypot_triggered', {'ip': request.remote_addr})
-        return jsonify({'success': False, 'message': 'Solicitud inválida.'}), 400
+        return jsonify({'success': False, 'message': 'Solicitud invÃ¡lida.'}), 400
     
     email = sanitize_input(request.form.get('email', ''), 255).lower()
     timeslot_id = request.form.get('timeslot_id')
@@ -259,41 +264,47 @@ def subscribe():
     
     # Validate email
     if not email or not security_validate_email(email):
-        return jsonify({'success': False, 'message': 'Email no válido.'}), 400
+        return jsonify({'success': False, 'message': 'Email no vÃ¡lido.'}), 400
     
     # Validate subscription type
     if timeslot_id and criteria_json:
-        return jsonify({'success': False, 'message': 'Solo puedes suscribirte a un turno específico O con criterios, no ambos.'}), 400
+        return jsonify({'success': False, 'message': 'Solo puedes suscribirte a un turno especÃ­fico O con criterios, no ambos.'}), 400
     
     if not timeslot_id and not criteria_json:
-        return jsonify({'success': False, 'message': 'Debes especificar un turno o criterios de búsqueda.'}), 400
+        return jsonify({'success': False, 'message': 'Debes especificar un turno o criterios de bÃºsqueda.'}), 400
     
     try:
         if timeslot_id:
             # Direct timeslot subscription
-            timeslot = Timeslot.query.get_or_404(int(timeslot_id))
-            
+            try:
+                timeslot_id_int = int(timeslot_id)
+            except (TypeError, ValueError):
+                return jsonify({'success': False, 'message': 'Turno inválido.'}), 400
+
+            timeslot = Timeslot.query.get_or_404(timeslot_id_int)
+
             # Check if already subscribed
-            existing = Subscription.query.filter_by(
-                email=email, 
-                timeslot_id=timeslot_id, 
-                is_active=True
+            existing = Subscription.query.filter(
+                Subscription.email == email,
+                Subscription.timeslot_id == timeslot_id_int,
+                Subscription.is_active.is_(True),
+                Subscription.status == SubscriptionStatus.ACTIVE,
             ).first()
-            
+
             if existing:
                 return jsonify({'success': False, 'message': 'Ya estás suscrito a este turno.'}), 400
-            
-            subscription = Subscription(email=email, timeslot_id=timeslot_id)
-            
+
+            subscription = Subscription(email=email, timeslot_id=timeslot_id_int)
+
         else:
             # Criteria-based subscription
             try:
                 criteria = json.loads(criteria_json)
             except json.JSONDecodeError:
-                return jsonify({'success': False, 'message': 'Criterios inválidos.'}), 400
+                return jsonify({'success': False, 'message': 'Criterios invÃ¡lidos.'}), 400
             
             if not validate_subscription_criteria(criteria):
-                return jsonify({'success': False, 'message': 'Criterios de búsqueda inválidos.'}), 400
+                return jsonify({'success': False, 'message': 'Criterios de bÃºsqueda invÃ¡lidos.'}), 400
             
             subscription = Subscription(email=email, criteria=criteria)
         
@@ -302,7 +313,7 @@ def subscribe():
         
         return jsonify({
             'success': True, 
-            'message': 'Suscripción creada correctamente. Te notificaremos cuando haya turnos disponibles.',
+            'message': 'SuscripciÃ³n creada correctamente. Te notificaremos cuando haya turnos disponibles.',
             'subscription_id': subscription.id
         })
         
@@ -316,13 +327,14 @@ def unsubscribe():
     subscription_id = request.form.get('subscription_id')
     
     if not subscription_id:
-        return jsonify({'success': False, 'message': 'ID de suscripción requerido.'}), 400
+        return jsonify({'success': False, 'message': 'ID de suscripciÃ³n requerido.'}), 400
     
     try:
         subscription = Subscription.query.get_or_404(int(subscription_id))
         subscription.is_active = False
+        subscription.status = SubscriptionStatus.UNSUBSCRIBED
         db.session.commit()
-        
+
         return jsonify({'success': True, 'message': 'Te has desuscrito correctamente.'})
         
     except Exception as e:
@@ -336,7 +348,7 @@ def leads():
     # Honeypot check
     if not honeypot_check(request.form):
         log_security_event('honeypot_triggered', {'ip': request.remote_addr, 'form': 'leads'})
-        return jsonify({'success': False, 'message': 'Solicitud inválida.'}), 400
+        return jsonify({'success': False, 'message': 'Solicitud invÃ¡lida.'}), 400
     
     # Get and validate form data
     name = sanitize_input(request.form.get('name', ''), 200)
@@ -353,20 +365,20 @@ def leads():
         }), 400
     
     if not security_validate_email(email):
-        return jsonify({'success': False, 'message': 'Email no válido.'}), 400
+        return jsonify({'success': False, 'message': 'Email no vÃ¡lido.'}), 400
     
     if phone and not validate_phone(phone):
-        return jsonify({'success': False, 'message': 'Teléfono no válido.'}), 400
+        return jsonify({'success': False, 'message': 'TelÃ©fono no vÃ¡lido.'}), 400
     
     # Validate business type
     allowed_types = ['deportes', 'estetica', 'profesionales']
     if business_type not in allowed_types:
-        return jsonify({'success': False, 'message': 'Tipo de negocio no válido.'}), 400
+        return jsonify({'success': False, 'message': 'Tipo de negocio no vÃ¡lido.'}), 400
     
     # Log the lead (in production, you'd save to database or send email)
     current_app.logger.info(f"New lead: {name} ({email}) - {business_type}")
     
     return jsonify({
         'success': True, 
-        'message': '¡Solicitud enviada correctamente! Nos pondremos en contacto contigo pronto.'
+        'message': 'Â¡Solicitud enviada correctamente! Nos pondremos en contacto contigo pronto.'
     })

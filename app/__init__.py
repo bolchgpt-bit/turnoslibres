@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -8,7 +8,8 @@ from flask_limiter.util import get_remote_address
 import redis
 from rq import Queue
 import os
-from app.security import security_headers, generate_csrf_token
+from app.security import security_headers
+from flask_wtf.csrf import generate_csrf
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -20,6 +21,7 @@ limiter = Limiter(
 )
 
 def create_app(config_name=None):
+    """Crea y configura la app Flask, inicializa extensiones y registra blueprints."""
     app = Flask(__name__)
     
     # Configuration
@@ -27,7 +29,10 @@ def create_app(config_name=None):
         app.config.update(config_name)
     else:
         app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql+psycopg2://postgres:postgres@localhost:5432/turnos')
+        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get(
+            'DATABASE_URL',
+            'postgresql+psycopg2://postgres:postgres@localhost:5432/turnos'
+        )
         app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
         app.config['WTF_CSRF_TIME_LIMIT'] = None
     
@@ -55,7 +60,7 @@ def create_app(config_name=None):
     
     # Login manager configuration
     login_manager.login_view = 'admin.login'
-    login_manager.login_message = 'Por favor inicia sesión para acceder a esta página.'
+    login_manager.login_message = 'Por favor inicia sesi��n para acceder a esta pǭgina.'
     login_manager.login_message_category = 'info'
     
     # Initialize Redis and RQ
@@ -66,11 +71,24 @@ def create_app(config_name=None):
     # Security headers
     @app.after_request
     def apply_security_headers(response):
+        """Aplica cabeceras de seguridad a cada respuesta HTTP."""
         return security_headers(response)
     
     @app.context_processor
     def inject_csrf_token():
-        return dict(csrf_token=generate_csrf_token)
+        """Inyecta helper para obtener token CSRF válido para Flask-WTF."""
+        return dict(csrf_token=generate_csrf)
+
+    @app.errorhandler(403)
+    def handle_403(e):
+        """Página amigable para accesos prohibidos.
+
+        - Devuelve JSON si el cliente lo espera o si es HTMX.
+        - Caso contrario, renderiza errors/403.html
+        """
+        if request.headers.get('HX-Request') or 'application/json' in request.headers.get('Accept', ''):
+            return jsonify({'error': 'Forbidden'}), 403
+        return render_template('errors/403.html'), 403
     
     # Register blueprints
     from app.main import bp as main_bp
@@ -85,9 +103,17 @@ def create_app(config_name=None):
     from app.ui import bp as ui_bp
     app.register_blueprint(ui_bp, url_prefix='/ui')
     
+    # Nuevos blueprints de búsqueda
+    from app.main.search_routes import search_bp
+    app.register_blueprint(search_bp)  # /buscar/...
+
+    from app.api.search import api_search
+    app.register_blueprint(api_search)  # /api/v1/search/...
+    
     return app
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Carga un usuario por ID para sesiones de Flask-Login."""
     from app.models import AppUser
     return AppUser.query.get(int(user_id))

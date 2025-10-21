@@ -1,0 +1,27 @@
+<div class="bg-gray-50 rounded-md border border-gray-200 p-4">
+  <h3 class="text-md font-medium text-gray-900 mb-3">Crear turno rápido — {{ service.name }} ({{ service.duration_min }} min)</h3>
+
+  <form hx-post="{{ url_for('admin.timeslots_create_for_service_quick_beauty') }}"
+        hx-target="#my-beauty-services-table"
+        hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="service_id" value="{{ service.id }}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Inicio</label>
+        <input type="datetime-local" name="start" class="form-input" required>
+      </div>
+      <div>
+        <label class="form-label">Precio (opcional)</label>
+        <input type="text" name="price" class="form-input" placeholder="Ej: 12000">
+      </div>
+    </div>
+
+    <div class="mt-4 flex gap-2">
+      <button type="submit" class="btn-primary">Crear</button>
+      <button type="button" class="btn-secondary" onclick="this.closest('div').innerHTML=''">Cancelar</button>
+    </div>
+  </form>
+</div>
+

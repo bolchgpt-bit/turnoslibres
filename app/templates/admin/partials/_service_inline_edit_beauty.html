@@ -1,0 +1,30 @@
+<div class="bg-gray-50 rounded-md border border-gray-200 p-4">
+  <h3 class="text-md font-medium text-gray-900 mb-3">Editar servicio — {{ service.name }}</h3>
+  <form hx-post="{{ url_for('admin.my_beauty_services_update') }}"
+        hx-target="#my-beauty-services-table"
+        hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="service_id" value="{{ service.id }}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Duración (min)</label>
+        <input type="number" name="duration_min" class="form-input" min="15" max="360" step="5" value="{{ service.duration_min }}" required>
+      </div>
+      <div>
+        <label class="form-label">Precio Base</label>
+        <input type="text" name="base_price" class="form-input" value="{{ service.base_price or '' }}" placeholder="Ej: 12000">
+      </div>
+      <div>
+        <label class="form-label">Moneda</label>
+        <input type="text" name="currency" class="form-input" value="{{ service.currency or 'ARS' }}" maxlength="3">
+      </div>
+    </div>
+
+    <div class="mt-4 flex gap-2">
+      <button type="submit" class="btn-primary">Guardar</button>
+      <button type="button" class="btn-secondary" onclick="this.closest('div').innerHTML=''">Cancelar</button>
+    </div>
+  </form>
+</div>
+

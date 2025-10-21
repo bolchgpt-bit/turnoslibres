@@ -40,6 +40,38 @@
             Gestionar
         </button>
     </div>
+    
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Catálogo</h3>
+        <p class="text-gray-600 mb-4">Crear entidades de catálogo</p>
+        <button class="btn-primary" hx-get="/admin/catalog_forms" hx-target="#content-area">
+            Crear
+        </button>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Vincular servicios</h3>
+        <p class="text-gray-600 mb-4">Asociar servicios a profesionales y centros</p>
+        <button class="btn-primary" hx-get="/admin/link_services_form" hx-target="#content-area">
+            Vincular
+        </button>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Profesionales</h3>
+        <p class="text-gray-600 mb-4">Listado y desvinculación inline</p>
+        <button class="btn-primary" hx-get="/admin/professionals_table" hx-target="#content-area">
+            Ver listado
+        </button>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Centros de Estética</h3>
+        <p class="text-gray-600 mb-4">Listado y desvinculación inline</p>
+        <button class="btn-primary" hx-get="/admin/beauty_centers_table" hx-target="#content-area">
+            Ver listado
+        </button>
+    </div>
 </div>
 
 <!-- Dynamic Content Area -->

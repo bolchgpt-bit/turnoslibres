@@ -1,0 +1,15 @@
+{% if kind == 'complex' %}
+  <label class="form-label">Complejo</label>
+{% elif kind == 'beauty' %}
+  <label class="form-label">Centro de Estética</label>
+{% else %}
+  <label class="form-label">Profesional</label>
+{% endif %}
+<select class="form-input" name="entity_id" required>
+  {% for it in items %}
+    <option value="{{ it.id }}" {% if selected_id is defined and selected_id==it.id %}selected{% endif %}>#{{ it.id }} — {{ it.name }}</option>
+  {% endfor %}
+  {% if not items %}
+    <option value="">(no hay elementos)</option>
+  {% endif %}
+</select>
