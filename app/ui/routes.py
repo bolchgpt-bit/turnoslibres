@@ -150,19 +150,26 @@ def turnos_table_grouped():
     
     # Get timeslots and group by day
     timeslots = query.order_by(Timeslot.start).all()
-    
-    # Group by day
+
+    # Group by day and compute simple counters per status for headers
     grouped_timeslots = {}
+    day_counts = {}
     for timeslot in timeslots:
         day = timeslot.start.date()
-        if day not in grouped_timeslots:
-            grouped_timeslots[day] = []
-        grouped_timeslots[day].append(timeslot)
-    
-    return render_template('partials/_turnos_table_grouped.html', 
-                         grouped_timeslots=grouped_timeslots,
-                         week_start=week_start,
-                         week_end=week_end)
+        grouped_timeslots.setdefault(day, []).append(timeslot)
+        if day not in day_counts:
+            day_counts[day] = {"available": 0, "holding": 0, "reserved": 0, "blocked": 0}
+        val = getattr(getattr(timeslot, 'status', None), 'value', None) or str(timeslot.status)
+        if val in day_counts[day]:
+            day_counts[day][val] += 1
+
+    return render_template(
+        'partials/_turnos_table_grouped.html',
+        grouped_timeslots=grouped_timeslots,
+        day_counts=day_counts,
+        week_start=week_start,
+        week_end=week_end,
+    )
 
 @bp.route('/subscribe', methods=['POST'])
 @limiter.limit("5 per minute")
