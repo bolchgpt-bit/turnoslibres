@@ -1,5 +1,7 @@
 <form id="filters-form">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <!-- Keep category in-scope for both views -->
+        <input type="hidden" name="category" value="{{ request.args.get('category', category.slug if category else '') }}">
         <div>
             <label class="form-label">Fecha</label>
             <input type="date" name="date" class="form-input" value="{{ request.args.get('date', '') }}">
