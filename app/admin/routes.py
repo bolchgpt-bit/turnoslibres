@@ -254,6 +254,7 @@ def turnos_table():
     page = int(request.args.get('page', 1))
     focus_id = request.args.get('focus_id', type=int)
     token = request.args.get('t')
+    token_invalid = False
 
     # If a token is provided, verify and derive focus_id
     if token and not focus_id:
@@ -264,6 +265,7 @@ def turnos_table():
             focus_id = int(data.get('ts')) if isinstance(data, dict) else None
         except (BadSignature, SignatureExpired, Exception):
             focus_id = None
+            token_invalid = True
     limit = min(int(request.args.get('limit', 20)), 50)
     
     # Build base query - limit to the admin's own scope
@@ -364,12 +366,20 @@ def turnos_table():
     has_next = total > (page * limit)
     has_prev = page > 1
     
+    notice_text = None
+    notice_category = None
+    if token_invalid:
+        notice_text = 'El enlace directo expiró o no es válido. Usa filtros o busca el turno.'
+        notice_category = 'error'
+
     return render_template('admin/partials/_admin_turnos_table.html', 
                           timeslots=timeslots,
                           page=page,
                           has_next=has_next,
                           has_prev=has_prev,
-                          total=total)
+                          total=total,
+                          notice_text=notice_text,
+                          notice_category=notice_category)
 
 # Super Admin Routes
 @bp.route('/categories_table')

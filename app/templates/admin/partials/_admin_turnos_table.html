@@ -4,6 +4,9 @@
         <span class="text-sm text-gray-500">{{ total }} turnos encontrados</span>
     </div>
     
+    {% if notice_text %}
+      <div class="mb-4 {{ 'alert-success' if notice_category == 'success' else 'alert-danger' }}">{{ notice_text }}</div>
+    {% endif %}
     {% if timeslots %}
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
