@@ -361,6 +361,21 @@ def turnos_table():
     total = query.count()
     offset = (page - 1) * limit
     timeslots = query.offset(offset).limit(limit).all()
+
+    # Lazy-expire HOLDING timeslots if Redis TTL key is missing
+    changed = False
+    try:
+        for t in timeslots:
+            if getattr(t, 'status', None) == TimeslotStatus.HOLDING:
+                key = f"hold:timeslot:{t.id}"
+                if not current_app.redis.get(key):
+                    t.status = TimeslotStatus.AVAILABLE
+                    t.reservation_code = None
+                    changed = True
+        if changed:
+            db.session.commit()
+    except Exception as _e:
+        current_app.logger.warning(f"Lazy expire holds (admin) failed: {_e}")
     
     # Calculate pagination info
     has_next = total > (page * limit)

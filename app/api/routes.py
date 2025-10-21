@@ -116,6 +116,12 @@ def hold_timeslot():
     # Transition to HOLDING
     ts.status = TimeslotStatus.HOLDING
     db.session.commit()
+    # Set Redis TTL key for automatic expiration of HOLD
+    try:
+        ttl_sec = int(current_app.config.get('HOLD_MINUTES', 15)) * 60
+        current_app.redis.setex(f"hold:timeslot:{ts.id}", ttl_sec, '1')
+    except Exception as _e:
+        current_app.logger.warning(f"Could not set HOLD TTL for timeslot {ts.id}: {_e}")
 
     return jsonify({'success': True, 'message': 'Turno en reservando.', 'whatsapp_url': wa_url, 'admin_url': admin_url})
 
