@@ -1,6 +1,7 @@
 import argparse
 from datetime import datetime, timezone
 from sqlalchemy import text
+from flask import current_app
 from app import create_app, db
 from app.models_catalog import Professional, BeautyCenter, SportsComplex
 from app.models import Category
@@ -132,8 +133,13 @@ def reset_tables(engine) -> None:
             db.session.execute(text("ALTER SEQUENCE professionals_id_seq RESTART WITH 1;"))
             db.session.execute(text("ALTER SEQUENCE beauty_centers_id_seq RESTART WITH 1;"))
             db.session.execute(text("ALTER SEQUENCE sports_complexes_id_seq RESTART WITH 1;"))
-        except Exception:
-            pass
+        except Exception as e:
+            # Silently continue if sequences don't exist on the current DB engine
+            try:
+                current_app.logger.debug("Sequence reset skipped: %s", str(e))
+            except Exception:
+                # In case current_app is not available, avoid breaking the script
+                pass
     db.session.commit()
 
 
@@ -170,3 +176,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

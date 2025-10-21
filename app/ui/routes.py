@@ -33,7 +33,7 @@ def turnos_table():
                 )
             )
         except ValueError:
-            pass
+            current_app.logger.debug("Invalid date format for 'date' in turnos_table: %s", date_str)
     
     # Category filter
     if category and validate_category(category):
@@ -103,6 +103,7 @@ def turnos_table_grouped():
         try:
             start_date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
+            current_app.logger.debug("Invalid date format for 'date' in turnos_table_grouped: %s", date_str)
             start_date = datetime.now().date()
     else:
         start_date = datetime.now().date()

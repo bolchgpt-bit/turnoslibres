@@ -5,6 +5,7 @@ from app.admin.forms import LoginForm, RegistrationForm, ProfessionalForm, Beaut
 from app.models import AppUser, Complex, Category, Service, Field, Timeslot, TimeslotStatus, UserComplex, user_professionals, user_beauty_centers
 from app.models_catalog import Professional, BeautyCenter, SportsComplex, professional_services, beauty_center_services
 from app import db
+from app.services.timeslot_generation import generate_timeslots_for_field
 from app.security import superadmin_required
 from app.utils import (
     user_can_manage_complex,
@@ -305,7 +306,7 @@ def turnos_table():
                     )
                 )
         except ValueError:
-            pass
+            current_app.logger.debug("Invalid date format for 'date' in admin.turnos_table: %s", date_str)
     
     # Category filter
     if category and validate_category(category):
@@ -1503,6 +1504,160 @@ def timeslots_create_form():
             .all()
         )
     return render_template('admin/partials/_timeslot_create_form.html', available_fields=available_fields)
+
+
+# --------- Bulk Timeslots (Deportes) ---------
+@bp.route('/timeslots/bulk_form')
+@login_required
+def timeslots_bulk_form():
+    """HTMX partial with bulk-creation form for sports (fields)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if current_user.is_superadmin:
+        available_fields = Field.query.order_by(Field.name).all()
+    else:
+        user_complexes = db.session.query(UserComplex.complex_id).filter_by(user_id=current_user.id).subquery()
+        available_fields = (
+            Field.query
+            .filter(Field.complex_id.in_(user_complexes))
+            .order_by(Field.name)
+            .all()
+        )
+
+    return render_template('admin/partials/_timeslot_bulk_form.html', available_fields=available_fields)
+
+
+@bp.route('/timeslots/bulk_create', methods=['POST'])
+@login_required
+def timeslots_bulk_create():
+    """Create many timeslots for a field over a date/time window.
+
+    Security:
+    - CSRF via template
+    - Authorization: deportes admin or superadmin, and ownership of field
+    """
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    field_id = request.form.get('field_id', type=int)
+    start_date_str = (request.form.get('start_date') or '').strip()
+    end_date_str = (request.form.get('end_date') or '').strip()
+    start_time_str = (request.form.get('start_time') or '').strip()
+    end_time_str = (request.form.get('end_time') or '').strip()
+    duration_min = request.form.get('duration_min', type=int)
+    interval_min = request.form.get('interval_min', type=int)
+    price_raw = (request.form.get('price') or '').strip()
+    currency = (request.form.get('currency') or 'ARS').strip() or 'ARS'
+    weekdays_vals = request.form.getlist('weekdays')
+
+    # Re-fetch available fields for re-rendering the form
+    if current_user.is_superadmin:
+        available_fields = Field.query.order_by(Field.name).all()
+    else:
+        user_complexes = db.session.query(UserComplex.complex_id).filter_by(user_id=current_user.id).subquery()
+        available_fields = (
+            Field.query
+            .filter(Field.complex_id.in_(user_complexes))
+            .order_by(Field.name)
+            .all()
+        )
+
+    message_text = ''
+    message_category = 'success'
+
+    field = Field.query.get(field_id) if field_id else None
+    if not field:
+        message_text = 'Cancha inválida'
+        message_category = 'error'
+    elif not current_user.is_superadmin and not user_can_manage_complex(getattr(current_user, 'id', None), field.complex_id):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Parse dates and times
+    start_date = end_date = None
+    start_time = end_time = None
+    if message_category == 'success':
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except Exception:
+            message_text = 'Rango de fechas inválido'
+            message_category = 'error'
+
+    if message_category == 'success':
+        try:
+            start_time = datetime.strptime(start_time_str, '%H:%M').time()
+            end_time = datetime.strptime(end_time_str, '%H:%M').time()
+        except Exception:
+            message_text = 'Franja horaria inválida'
+            message_category = 'error'
+
+    if message_category == 'success':
+        if not duration_min or duration_min < 15 or duration_min > 360:
+            message_text = 'Duración inválida (15–360)'
+            message_category = 'error'
+
+    if message_category == 'success':
+        if not interval_min or interval_min < 5 or interval_min > 480:
+            interval_min = duration_min
+
+    if message_category == 'success':
+        if end_date < start_date:
+            message_text = 'La fecha fin debe ser posterior a inicio'
+            message_category = 'error'
+
+    # Limit guard rails (avoid massive explosions)
+    if message_category == 'success':
+        max_days = 120
+        days = (end_date - start_date).days + 1
+        if days > max_days:
+            message_text = f'Rango demasiado grande (máx {max_days} días)'
+            message_category = 'error'
+
+    # Weekdays
+    if message_category == 'success':
+        try:
+            weekdays = [int(w) for w in weekdays_vals]
+        except Exception:
+            weekdays = []
+        if not weekdays:
+            message_text = 'Seleccioná al menos un día de la semana'
+            message_category = 'error'
+
+    # Price
+    price = None
+    if message_category == 'success' and price_raw:
+        try:
+            price = float(price_raw.replace(',', '.'))
+            if price < 0:
+                raise ValueError()
+        except Exception:
+            message_text = 'Precio inválido'
+            message_category = 'error'
+
+    created = skipped = 0
+    if message_category == 'success':
+        created, skipped = generate_timeslots_for_field(
+            field=field,
+            start_date=start_date,
+            end_date=end_date,
+            start_time=start_time,
+            end_time=end_time,
+            duration_min=duration_min,
+            interval_min=interval_min,
+            weekdays=weekdays,
+            price=price,
+            currency=currency,
+            status=TimeslotStatus.AVAILABLE,
+        )
+        message_text = f'Turnos creados: {created}. Omitidos por solape: {skipped}.'
+
+    return render_template(
+        'admin/partials/_timeslot_bulk_form.html',
+        available_fields=available_fields,
+        message_text=message_text,
+        message_category=message_category,
+    )
 
 @bp.route('/timeslots/create', methods=['POST'])
 @login_required

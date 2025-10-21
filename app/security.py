@@ -51,19 +51,52 @@ def rate_limit_key():
     return f"{ip}:{user_id}"
 
 def security_headers(response):
-    """Add security headers to response"""
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-    response.headers['Content-Security-Policy'] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://unpkg.com; "
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-        "img-src 'self' data: https:; "
-        "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self';"
-    )
+    """Add security headers to response in an idempotent way.
+
+    - Only set headers if they are not already present (to avoid duplicates when
+      running behind a reverse proxy like Nginx that may set the same headers).
+    - Set HSTS only for secure requests to avoid confusing behavior on HTTP.
+    """
+
+    # If we are behind a reverse proxy (e.g., Nginx sets X-Forwarded-Proto),
+    # let the proxy be the single source of truth for security headers to avoid
+    # duplicated header entries observed by clients.
+    behind_proxy = bool(request.headers.get('X-Forwarded-Proto'))
+    if behind_proxy:
+        return response
+
+    def _set_if_absent(key: str, value: str) -> None:
+        if not response.headers.get(key):
+            response.headers[key] = value
+
+    _set_if_absent('X-Content-Type-Options', 'nosniff')
+    _set_if_absent('X-Frame-Options', 'DENY')
+    _set_if_absent('X-XSS-Protection', '1; mode=block')
+
+    # Only set HSTS when the request is secure. Many deployments terminate TLS
+    # at the proxy, which should set HSTS at the edge (Nginx). This keeps dev
+    # and proxy setups from getting duplicate/conflicting headers.
+    try:
+        is_secure = bool(getattr(request, 'is_secure', False)) or (
+            request.headers.get('X-Forwarded-Proto', '').lower() == 'https'
+        )
+    except Exception:
+        is_secure = False
+    if is_secure:
+        _set_if_absent('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+
+    # Content Security Policy: set a safe default for dev/standalone runs, but
+    # avoid overriding if already provided by the proxy.
+    if not response.headers.get('Content-Security-Policy'):
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https://fonts.gstatic.com; "
+            "connect-src 'self';"
+        )
+
     return response
 
 def validate_subscription_criteria(criteria):
