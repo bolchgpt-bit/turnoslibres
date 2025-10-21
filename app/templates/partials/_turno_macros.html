@@ -29,15 +29,17 @@
         ${{ timeslot.price }} {{ timeslot.currency }}
       {% else %}-{% endif %}
     </td>
-    <td class="px-6 py-4 whitespace-nowrap">{{ status_badge(timeslot.status.value) }}</td>
+    <td class="px-6 py-4 whitespace-nowrap" id="status-{{ timeslot.id }}">{{ status_badge(timeslot.status.value) }} <span id="hold-ct-{{ timeslot.id }}" class="text-xs text-gray-500"></span></td>
     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
       {% if timeslot.status.value == 'available' %}
+        <span id="hold-ind-{{ timeslot.id }}" class="htmx-indicator text-xs text-gray-500">Procesando…</span>
         <button class="text-blue-600 hover:text-blue-900"
                 hx-post="{{ url_for('api.hold_timeslot') }}"
                 hx-include="this"
                 hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'
                 hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
-                hx-on="htmx:afterOnLoad: (function(){try{var data=JSON.parse(event.detail.xhr.responseText); if(data && data.whatsapp_url){ window.open(data.whatsapp_url,'_blank'); }}catch(e){}})()">
+                hx-indicator="#hold-ind-{{ timeslot.id }}"
+                hx-on="htmx:afterOnLoad: (function(){try{var data=JSON.parse(event.detail.xhr.responseText); if(data && data.success){var st=document.getElementById('status-{{ timeslot.id }}'); if(st){st.innerHTML='<span class=\'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800\'>Reservando</span> <span id=\'hold-ct-{{ timeslot.id }}\' class=\'text-xs text-gray-500\'></span>'; var secs=(parseInt('{{ hold_minutes }}')||15)*60; var el=document.getElementById('hold-ct-{{ timeslot.id }}'); if(el){var iv=setInterval(function(){secs--; if(secs<=0){clearInterval(iv); el.textContent='';} else {var m=Math.floor(secs/60), s=('0'+(secs%60)).slice(-2); el.textContent=' ('+m+':'+s+')';}},1000);} } if(data.whatsapp_url){ window.open(data.whatsapp_url,'_blank'); } } }catch(e){}})()">
           Reservar
         </button>
       {% else %}
@@ -68,15 +70,17 @@
       {% endif %}
     </td>
     <td class="px-4 py-2 text-sm text-gray-900">{% if timeslot.price %}${{ timeslot.price }}{% else %}-{% endif %}</td>
-    <td class="px-4 py-2">{{ status_badge(timeslot.status.value) }}</td>
+    <td class="px-4 py-2" id="status-{{ timeslot.id }}">{{ status_badge(timeslot.status.value) }} <span id="hold-ct-{{ timeslot.id }}" class="text-xs text-gray-500"></span></td>
     <td class="px-4 py-2 text-sm">
       {% if timeslot.status.value == 'available' %}
+        <span id="hold-ind-{{ timeslot.id }}" class="htmx-indicator text-xs text-gray-500">Procesando…</span>
         <button class="text-blue-600 hover:text-blue-900 text-xs"
                 hx-post="{{ url_for('api.hold_timeslot') }}"
                 hx-include="this"
                 hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'
                 hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
-                hx-on="htmx:afterOnLoad: (function(){try{var data=JSON.parse(event.detail.xhr.responseText); if(data && data.whatsapp_url){ window.open(data.whatsapp_url,'_blank'); }}catch(e){}})()">
+                hx-indicator="#hold-ind-{{ timeslot.id }}"
+                hx-on="htmx:afterOnLoad: (function(){try{var data=JSON.parse(event.detail.xhr.responseText); if(data && data.success){var st=document.getElementById('status-{{ timeslot.id }}'); if(st){st.innerHTML='<span class=\'inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800\'>Reservando</span> <span id=\'hold-ct-{{ timeslot.id }}\' class=\'text-xs text-gray-500\'></span>'; var secs=(parseInt('{{ hold_minutes }}')||15)*60; var el=document.getElementById('hold-ct-{{ timeslot.id }}'); if(el){var iv=setInterval(function(){secs--; if(secs<=0){clearInterval(iv); el.textContent='';} else {var m=Math.floor(secs/60), s=('0'+(secs%60)).slice(-2); el.textContent=' ('+m+':'+s+')';}},1000);} } if(data.whatsapp_url){ window.open(data.whatsapp_url,'_blank'); } } }catch(e){}})()">
           Reservar
         </button>
       {% else %}
