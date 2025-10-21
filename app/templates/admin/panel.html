@@ -162,10 +162,15 @@
 {% endif %}
 
 <!-- Turnos Table -->
-<div id="turnos-table" class="bg-white rounded-lg shadow-md">
-    <div class="p-6">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos</h2>
-        <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
-    </div>
+<div id="turnos-table"
+     class="bg-white rounded-lg shadow-md"
+     hx-get="{{ url_for('admin.turnos_table') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML"
+     hx-vals='{"focus_id": "{{ request.args.get("focus_id", "") }}"}'>
+  <div class="p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos</h2>
+      <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
+  </div>
 </div>
 {% endblock %}

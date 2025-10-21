@@ -140,4 +140,15 @@
             <p class="text-gray-500">No hay turnos disponibles con los filtros seleccionados.</p>
         </div>
     {% endif %}
+    
+    <script>
+      try {
+        if (location.hash) {
+          var el = document.querySelector(location.hash);
+          if (el && typeof el.scrollIntoView === 'function') {
+            el.scrollIntoView({behavior: 'smooth', block: 'center'});
+          }
+        }
+      } catch (e) {}
+    </script>
 </div>

@@ -55,13 +55,20 @@ def hold_timeslot():
     def _fmt_price() -> str:
         return f"${ts.price} {ts.currency}" if ts.price else "-"
 
-    msg = (
-        f"Solicitud de reserva%0A"
-        f"Fecha/Hora: {ts.start.strftime('%d/%m/%Y %H:%M')}%0A"
-        f"Lugar/Servicio: {_fmt_location()}%0A"
-        f"Precio: {_fmt_price()}%0A"
+    # Deep link to admin panel for this timeslot
+    base = current_app.config.get('APP_BASE_URL', '').rstrip('/')
+    admin_url = f"{base}/admin/panel?focus_id={ts.id}#timeslot-{ts.id}" if base else None
+
+    # Human-readable message (encode after composing)
+    msg_text = (
+        "Solicitud de reserva\n"
+        f"Fecha/Hora: {ts.start.strftime('%d/%m/%Y %H:%M')}\n"
+        f"Lugar/Servicio: {_fmt_location()}\n"
+        f"Precio: {_fmt_price()}\n"
         f"ID: {ts.id}"
     )
+    if admin_url:
+        msg_text += f"\nGestionar: {admin_url}"
 
     # Pick phone number
     phone = None
@@ -96,13 +103,13 @@ def hold_timeslot():
         return ''.join(ch for ch in str(p) if ch.isdigit() or ch == '+')
 
     phone_clean = _clean_phone(phone)
-    wa_url = f"https://wa.me/{phone_clean}?text={quote(msg)}" if phone_clean else None
+    wa_url = f"https://wa.me/{phone_clean}?text={quote(msg_text)}" if phone_clean else None
 
     # Transition to HOLDING
     ts.status = TimeslotStatus.HOLDING
     db.session.commit()
 
-    return jsonify({'success': True, 'message': 'Turno en reservando.', 'whatsapp_url': wa_url})
+    return jsonify({'success': True, 'message': 'Turno en reservando.', 'whatsapp_url': wa_url, 'admin_url': admin_url})
 
 @bp.route('/lead', methods=['POST'])
 @limiter.limit("3 per minute")
