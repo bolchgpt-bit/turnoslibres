@@ -9,9 +9,14 @@
     {% if grouped_timeslots %}
         {% for day, day_timeslots in grouped_timeslots.items() %}
             <div class="mb-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-3">
-                    {{ day.strftime('%A %d de %B') }}
-                </h3>
+                <div class="sticky top-0 bg-white/90 backdrop-blur px-1 py-2 border-b">
+                  <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-3">
+                    <span>{{ day.strftime('%A %d de %B') }}</span>
+                    {% if day_counts and day in day_counts %}
+                      <span class="text-sm text-gray-500">— {{ day_counts[day]['available'] }} disp · {{ day_counts[day]['holding'] }} reservando · {{ day_counts[day]['reserved'] }} reserv</span>
+                    {% endif %}
+                  </h3>
+                </div>
                 
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -25,64 +30,9 @@
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
+                            {% from 'partials/_turno_macros.html' import turno_row_weekly %}
                             {% for timeslot in day_timeslots %}
-                                <tr>
-                                    <td class="px-4 py-2 text-sm text-gray-900">
-                                        {{ timeslot.start.strftime('%H:%M') }}
-                                    </td>
-                                    <td class="px-4 py-2 text-sm text-gray-900">
-                                        {% if timeslot.field %}
-                                            {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}
-                                        {% elif timeslot.service %}
-                                            {{ timeslot.service.name }}
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-4 py-2 text-sm text-gray-900">
-                                        {% if timeslot.price %}
-                                            ${{ timeslot.price }}
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-4 py-2">
-                                        {% if timeslot.status.value == 'available' %}
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                                                Disponible
-                                            </span>
-                                        {% elif timeslot.status.value == 'holding' %}
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
-                                                Reservando
-                                            </span>
-                                        {% elif timeslot.status.value == 'reserved' %}
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
-                                                Reservado
-                                            </span>
-                                        {% else %}
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
-                                                Bloqueado
-                                            </span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="px-4 py-2 text-sm">
-                                        {% if timeslot.status.value == 'available' %}
-                                            <button class="text-blue-600 hover:text-blue-900 text-xs">Reservar</button>
-                                        {% else %}
-                                            <div class="flex items-center space-x-1">
-                                                <input type="email" placeholder="email" 
-                                                       class="text-xs px-1 py-1 border rounded w-20" 
-                                                       id="email-week-{{ timeslot.id }}">
-                                                <button class="text-blue-600 hover:text-blue-900 text-xs"
-                                                        hx-post="{{ url_for('ui.subscribe') }}"
-                                                        hx-target="#result-week-{{ timeslot.id }}"
-                                                        hx-include="#email-week-{{ timeslot.id }}"
-                                                        hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'>
-                                                    Avisar
-                                                </button>
-                                            </div>
-                                            <div id="result-week-{{ timeslot.id }}" class="mt-1"></div>
-                                        {% endif %}
-                                    </td>
-                                </tr>
+                              {{ turno_row_weekly(timeslot) }}
                             {% endfor %}
                         </tbody>
                     </table>

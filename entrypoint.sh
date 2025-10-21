@@ -11,9 +11,9 @@ while ! pg_isready -h $DB_HOST -p $DB_PORT -U $DB_USER; do
 done
 echo "Database is up!"
 
-# Run migrations
+# Run migrations (support multiple heads)
 echo "Running database migrations..."
-flask db upgrade
+flask db upgrade heads
 
 # Check if database is empty and seed if needed
 echo "Checking if database needs seeding..."

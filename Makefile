@@ -46,8 +46,8 @@ shell-db: ## Open PostgreSQL shell
 test: ## Run tests
 	docker-compose exec web python -m pytest
 
-migrate: ## Run database migrations
-	docker-compose exec web flask db upgrade
+migrate: ## Run database migrations (support multiple heads)
+	docker-compose exec web flask db upgrade heads
 
 migrate-create: ## Create new migration (usage: make migrate-create MESSAGE="description")
 	docker-compose exec web flask db migrate -m "$(MESSAGE)"

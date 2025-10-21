@@ -1,0 +1,84 @@
+{% macro status_badge(status_value) %}
+  {%- if status_value == 'available' -%}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Disponible</span>
+  {%- elif status_value == 'holding' -%}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Reservando</span>
+  {%- elif status_value == 'reserved' -%}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Reservado</span>
+  {%- else -%}
+    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Bloqueado</span>
+  {%- endif -%}
+{% endmacro %}
+
+{% macro turno_row_daily(timeslot) %}
+  <tr>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      {{ timeslot.start.strftime('%d/%m/%Y %H:%M') }}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      {% if timeslot.field %}
+        {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}
+        {% if timeslot.field.sport %}<br><span class="text-gray-500">{{ timeslot.field.sport }}</span>{% endif %}
+      {% elif timeslot.service %}
+        {{ timeslot.service.name }}
+        <br><span class="text-gray-500">{{ timeslot.service.category.title }}</span>
+      {% endif %}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+      {% if timeslot.price %}
+        ${{ timeslot.price }} {{ timeslot.currency }}
+      {% else %}-{% endif %}
+    </td>
+    <td class="px-6 py-4 whitespace-nowrap">{{ status_badge(timeslot.status.value) }}</td>
+    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+      {% if timeslot.status.value == 'available' %}
+        <button class="text-blue-600 hover:text-blue-900">Reservar</button>
+      {% else %}
+        <div class="flex items-center space-x-2">
+          <input type="email" placeholder="tu@email.com" class="text-xs px-2 py-1 border rounded" id="email-{{ timeslot.id }}">
+          <button class="text-blue-600 hover:text-blue-900 text-xs"
+                  hx-post="{{ url_for('ui.subscribe') }}"
+                  hx-target="#result-{{ timeslot.id }}"
+                  hx-include="#email-{{ timeslot.id }}"
+                  hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'>
+            Avisar
+          </button>
+        </div>
+        <div id="result-{{ timeslot.id }}" class="mt-1"></div>
+      {% endif %}
+    </td>
+  </tr>
+{% endmacro %}
+
+{% macro turno_row_weekly(timeslot) %}
+  <tr>
+    <td class="px-4 py-2 text-sm text-gray-900">{{ timeslot.start.strftime('%H:%M') }}</td>
+    <td class="px-4 py-2 text-sm text-gray-900">
+      {% if timeslot.field %}
+        {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}
+      {% elif timeslot.service %}
+        {{ timeslot.service.name }}
+      {% endif %}
+    </td>
+    <td class="px-4 py-2 text-sm text-gray-900">{% if timeslot.price %}${{ timeslot.price }}{% else %}-{% endif %}</td>
+    <td class="px-4 py-2">{{ status_badge(timeslot.status.value) }}</td>
+    <td class="px-4 py-2 text-sm">
+      {% if timeslot.status.value == 'available' %}
+        <button class="text-blue-600 hover:text-blue-900 text-xs">Reservar</button>
+      {% else %}
+        <div class="flex items-center space-x-1">
+          <input type="email" placeholder="email" class="text-xs px-1 py-1 border rounded w-20" id="email-week-{{ timeslot.id }}">
+          <button class="text-blue-600 hover:text-blue-900 text-xs"
+                  hx-post="{{ url_for('ui.subscribe') }}"
+                  hx-target="#result-week-{{ timeslot.id }}"
+                  hx-include="#email-week-{{ timeslot.id }}"
+                  hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'>
+            Avisar
+          </button>
+        </div>
+        <div id="result-week-{{ timeslot.id }}" class="mt-1"></div>
+      {% endif %}
+    </td>
+  </tr>
+{% endmacro %}
+

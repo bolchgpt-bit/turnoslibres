@@ -28,26 +28,6 @@
     {% include 'partials/_legend.html' %}
 </div>
 
-<!-- View Toggle -->
-<div class="mb-6">
-    <div class="flex gap-2">
-        <button class="btn-primary" 
-                hx-get="{{ url_for('ui.turnos_table') }}" 
-                hx-target="#turnos-container"
-                hx-include="[name='date'], [name='category'], [name='status'], [name='complex_slug'], [name='sport_service']"
-                hx-vals='{"span": "day"}'>
-            Vista Día
-        </button>
-        <button class="btn-secondary" 
-                hx-get="{{ url_for('ui.turnos_table_grouped') }}" 
-                hx-target="#turnos-container"
-                hx-include="[name='date'], [name='category'], [name='status'], [name='complex_slug'], [name='sport_service']"
-                hx-vals='{"span": "week"}'>
-            Vista Semana
-        </button>
-    </div>
-</div>
-
 <!-- Turnos Container -->
 <div id="turnos-container" class="bg-white rounded-lg shadow-md">
     <div class="p-6">
@@ -59,3 +39,4 @@
 <!-- Hidden inputs for HTMX -->
 <input type="hidden" name="category" value="{{ category.slug }}">
 {% endblock %}
+
