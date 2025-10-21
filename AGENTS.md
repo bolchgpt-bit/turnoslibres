@@ -113,3 +113,20 @@ pytest -v
 
 # revisar logs
 make logs
+## 8. Entorno de desarrollo local (Windows host)
+
+### ⚙️ Contexto operativo
+El proyecto se desarrolla en **Windows 10/11** con:
+- **VS Code** como editor principal.
+- **Git for Windows** (`C:\Program Files\Git\cmd\git.exe`).
+- **Docker Desktop** con backend **WSL2** (solo como motor, no para editar código).
+- El repositorio vive en rutas locales de Windows (`C:\Users\...`), no bajo `\\wsl$` ni OneDrive.
+
+### ⚠️ Reglas duras (para agentes y herramientas automáticas)
+1. **Prohibido lanzar procesos MCP/Sidecar** (Codex o similares).  
+   Ejecutar comandos solo por **CLI del sistema**.
+2. **Prohibido modificar variables globales del entorno** (`PATH`, `HOME`, `USERPROFILE`, `SystemRoot`).
+3. **Prohibido usar `...\Git\bin\git.exe` o `mingw64\libexec\git-core\git.exe`**.  
+   Siempre usar:
+   ```bash
+   "C:\Program Files\Git\cmd\git.exe"

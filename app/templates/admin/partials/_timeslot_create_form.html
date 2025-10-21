@@ -42,6 +42,13 @@
     <div class="mt-6 flex gap-2">
       <button type="submit" class="btn-primary">Crear turno</button>
       <button type="button" class="btn-secondary" onclick="this.form.reset()">Limpiar</button>
+      <button type="button"
+              class="btn-secondary"
+              hx-get="{{ url_for('admin.timeslots_bulk_form') }}"
+              hx-target="#timeslot-create-form"
+              hx-swap="outerHTML">
+        Generación masiva
+      </button>
     </div>
   </form>
 </div>

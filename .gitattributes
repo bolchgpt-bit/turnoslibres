@@ -1,22 +1,26 @@
-﻿# Forzar LF en todos los archivos de texto
-* text=auto eol=lf
+# Normalize line endings to avoid Windows/WSL/Docker issues
 
-# Archivos de código
-*.py   text eol=lf
+# Default: auto-detect text files
+* text=auto
+
+# Unix LF endings for runtime scripts and configs inside containers
+*.sh text eol=lf
+Dockerfile* text eol=lf
+docker-compose*.yml text eol=lf
+Makefile text eol=lf
+*.py text eol=lf
+*.sql text eol=lf
+*.conf text eol=lf
+*.ini text eol=lf
+*.mako text eol=lf
+
+# Templates and docs
 *.html text eol=lf
-*.css  text eol=lf
-*.js   text eol=lf
-*.yml  text eol=lf
-*.json text eol=lf
-*.md   text eol=lf
+*.jinja* text eol=lf
+*.md text eol=lf
 
-# Archivos binarios (no tocar)
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.gif binary
-*.ico binary
-*.pdf binary
-*.woff binary
-*.woff2 binary
-*.ttf binary
+# Windows scripts keep CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+

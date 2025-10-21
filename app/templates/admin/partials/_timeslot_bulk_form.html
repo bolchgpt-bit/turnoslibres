@@ -1,0 +1,88 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Generación masiva de turnos (Deportes)</h2>
+
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">
+      {{ message_text }}
+    </div>
+  {% endif %}
+
+  <form hx-post="{{ url_for('admin.timeslots_bulk_create') }}" hx-target="#timeslot-create-form" hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Cancha</label>
+        <select name="field_id" class="form-input" required>
+          <option value="">Seleccionar cancha...</option>
+          {% for f in available_fields %}
+            <option value="{{ f.id }}">{{ f.complex.name }} - {{ f.name }}{% if f.display_sport %} ({{ f.display_sport }}){% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Fecha desde</label>
+        <input type="date" name="start_date" class="form-input" required>
+      </div>
+      <div>
+        <label class="form-label">Fecha hasta</label>
+        <input type="date" name="end_date" class="form-input" required>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+      <div>
+        <label class="form-label">Hora inicio</label>
+        <input type="time" name="start_time" class="form-input" required value="09:00">
+      </div>
+      <div>
+        <label class="form-label">Hora fin</label>
+        <input type="time" name="end_time" class="form-input" required value="18:00">
+      </div>
+      <div>
+        <label class="form-label">Duración (min)</label>
+        <input type="number" name="duration_min" class="form-input" min="15" max="360" step="15" value="60" required>
+      </div>
+      <div>
+        <label class="form-label">Intervalo (min)</label>
+        <input type="number" name="interval_min" class="form-input" min="5" max="480" step="5" placeholder="Por defecto: igual a duración">
+      </div>
+    </div>
+
+    <div class="mt-4">
+      <label class="form-label">Días de la semana</label>
+      <div class="grid grid-cols-2 md:grid-cols-7 gap-2 mt-2">
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="0" class="form-checkbox" checked> Lun</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="1" class="form-checkbox" checked> Mar</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="2" class="form-checkbox" checked> Mié</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="3" class="form-checkbox" checked> Jue</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="4" class="form-checkbox" checked> Vie</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="5" class="form-checkbox"> Sáb</label>
+        <label class="inline-flex items-center gap-2"><input type="checkbox" name="weekdays" value="6" class="form-checkbox"> Dom</label>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+      <div>
+        <label class="form-label">Precio (opcional)</label>
+        <input type="text" name="price" class="form-input" placeholder="Ej: 5000">
+      </div>
+      <div>
+        <label class="form-label">Moneda</label>
+        <input type="text" name="currency" class="form-input" value="ARS" maxlength="3">
+      </div>
+    </div>
+
+    <div class="mt-6 flex gap-2">
+      <button type="submit" class="btn-primary">Generar turnos</button>
+      <button type="button"
+              class="btn-secondary"
+              hx-get="{{ url_for('admin.timeslots_create_form') }}"
+              hx-target="#timeslot-create-form"
+              hx-swap="outerHTML">
+        Volver a creación simple
+      </button>
+    </div>
+  </form>
+</div>
+
