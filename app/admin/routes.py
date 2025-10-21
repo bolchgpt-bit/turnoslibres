@@ -18,6 +18,7 @@ from app.utils import (
 )
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, or_
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from markupsafe import escape
 
 @bp.route('/login', methods=['GET', 'POST'])
@@ -251,6 +252,18 @@ def turnos_table():
     complex_slug = request.args.get('complex_slug', '')
     sport_service = request.args.get('sport_service', '')
     page = int(request.args.get('page', 1))
+    focus_id = request.args.get('focus_id', type=int)
+    token = request.args.get('t')
+
+    # If a token is provided, verify and derive focus_id
+    if token and not focus_id:
+        try:
+            s = URLSafeTimedSerializer(current_app.secret_key, salt='admin-focus')
+            ttl = int(current_app.config.get('FOCUS_TOKEN_TTL', 7200))
+            data = s.loads(token, max_age=ttl)
+            focus_id = int(data.get('ts')) if isinstance(data, dict) else None
+        except (BadSignature, SignatureExpired, Exception):
+            focus_id = None
     limit = min(int(request.args.get('limit', 20)), 50)
     
     # Build base query - limit to the admin's own scope
@@ -332,9 +345,14 @@ def turnos_table():
         else:
             query = query.join(Service).filter(Service.name.ilike(f'%{sport_service}%'))
     
-    # Exclude past timeslots (only show those starting after now)
+    # Exclude past timeslots (only show those starting after now), unless focusing
     now = datetime.now(timezone.utc)
-    query = query.filter(Timeslot.start > now)
+    if not focus_id:
+        query = query.filter(Timeslot.start > now)
+
+    # Focus on a specific timeslot if requested and within scope
+    if focus_id:
+        query = query.filter(Timeslot.id == focus_id)
 
     # Order and paginate
     query = query.order_by(Timeslot.start)
@@ -347,11 +365,11 @@ def turnos_table():
     has_prev = page > 1
     
     return render_template('admin/partials/_admin_turnos_table.html', 
-                         timeslots=timeslots,
-                         page=page,
-                         has_next=has_next,
-                         has_prev=has_prev,
-                         total=total)
+                          timeslots=timeslots,
+                          page=page,
+                          has_next=has_next,
+                          has_prev=has_prev,
+                          total=total)
 
 # Super Admin Routes
 @bp.route('/categories_table')

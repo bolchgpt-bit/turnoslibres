@@ -16,6 +16,7 @@ from app import db, limiter
 import uuid
 import json
 from urllib.parse import quote
+from itsdangerous import URLSafeTimedSerializer
 from app.models_catalog import professional_services, beauty_center_services, Professional, BeautyCenter
 
 @bp.get('/health')
@@ -57,7 +58,14 @@ def hold_timeslot():
 
     # Deep link to admin panel for this timeslot
     base = current_app.config.get('APP_BASE_URL', '').rstrip('/')
-    admin_url = f"{base}/admin/panel?focus_id={ts.id}#timeslot-{ts.id}" if base else None
+    admin_url = None
+    try:
+        if base:
+            s = URLSafeTimedSerializer(current_app.secret_key, salt='admin-focus')
+            token = s.dumps({'ts': ts.id})
+            admin_url = f"{base}/admin/panel?t={token}#timeslot-{ts.id}"
+    except Exception:
+        admin_url = None
 
     # Human-readable message (encode after composing)
     msg_text = (
