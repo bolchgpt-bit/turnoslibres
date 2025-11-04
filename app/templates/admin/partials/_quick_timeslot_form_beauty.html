@@ -9,6 +9,20 @@
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div>
+        <label class="form-label">Centro</label>
+        <select name="center_id" class="form-input" required>
+          <option value="">Seleccioná un centro</option>
+          {% for c in centers %}
+            <option value="{{ c.id }}">{{ c.name }}{% if c.city %} — {{ c.city }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        {% if centers|length == 0 %}
+          <p class="text-xs text-gray-500 mt-1">No tenés centros vinculados para este servicio.</p>
+        {% elif centers|length == 1 %}
+          <p class="text-xs text-gray-500 mt-1">Este turno quedará asignado a: {{ centers[0].name }}</p>
+        {% endif %}
+      </div>
+      <div>
         <label class="form-label">Inicio</label>
         <input type="datetime-local" name="start" class="form-input" required>
       </div>

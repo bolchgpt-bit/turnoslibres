@@ -5,67 +5,136 @@
 {% block content %}
 <!-- Breadcrumb -->
 <nav class="mb-6">
-    <ol class="flex items-center space-x-2 text-sm text-gray-500">
-        <li><a href="{{ url_for('main.index') }}" class="hover:text-blue-600">Inicio</a></li>
-        <li><span class="mx-2">/</span></li>
-        <li><a href="#" class="hover:text-blue-600">Complejos</a></li>
-        <li><span class="mx-2">/</span></li>
-        <li class="text-gray-900 font-medium">{{ complex.name }}</li>
-    </ol>
+  <ol class="flex items-center space-x-2 text-sm text-gray-500">
+    <li><a href="{{ url_for('main.index') }}" class="hover:text-blue-600">Inicio</a></li>
+    <li><span class="mx-2">/</span></li>
+    <li><a href="#" class="hover:text-blue-600">Complejos</a></li>
+    <li><span class="mx-2">/</span></li>
+    <li class="text-gray-900 font-medium">{{ complex.name }}</li>
+  </ol>
+  {% if current_user.is_authenticated %}
+    <div class="mt-2 text-xs text-gray-500">URL: {{ request.url_root | trim }}complejos/{{ complex.slug }}</div>
+  {% endif %}
 </nav>
 
-<!-- Complex Info -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ complex.name }}</h1>
-    
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Información</h3>
-            <div class="space-y-2 text-gray-600">
-                <p><strong>Ciudad:</strong> {{ complex.city }}</p>
-                {% if complex.address %}
-                    <p><strong>Dirección:</strong> {{ complex.address }}</p>
-                {% endif %}
-                {% if complex.contact_phone %}
-                    <p><strong>Teléfono:</strong> {{ complex.contact_phone }}</p>
-                {% endif %}
-                {% if complex.contact_email %}
-                    <p><strong>Email:</strong> {{ complex.contact_email }}</p>
-                {% endif %}
-            </div>
-        </div>
-        
-        <div>
-            <h3 class="text-lg font-semibold text-gray-900 mb-2">Categorías</h3>
-            <div class="flex flex-wrap gap-2">
-                {% for category in complex.categories %}
-                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                        {{ category.title }}
-                    </span>
-                {% endfor %}
-            </div>
-        </div>
+<!-- Hero / Complex Info -->
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-semibold text-gray-900">{{ complex.name }}</h1>
+      <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+        <span class="inline-flex items-center gap-1"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-7-10a7 7 0 1 1 14 0c0 5.5-7 10-7 10Z"/><circle cx="12" cy="11" r="3"/></svg>{{ complex.city }}</span>
+        {% for category in complex.categories %}
+          <span class="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{{ category.title }}</span>
+        {% endfor %}
+      </div>
     </div>
-</div>
+    <div class="flex flex-wrap gap-2">
+      {% if complex.contact_phone %}
+        {% set phone_digits = complex.contact_phone|replace(' ', '')|replace('-', '') %}
+        <a href="tel:{{ phone_digits }}" class="btn-secondary">Llamar</a>
+        <a href="https://wa.me/{{ phone_digits }}?text={{ ('Hola, consulto por turnos en ' ~ complex.name ~ ' (' ~ request.url | trim ~ ')')|urlencode }}" target="_blank" rel="noopener" class="btn-primary">WhatsApp</a>
+      {% endif %}
+      {% if complex.contact_email %}
+        <a href="mailto:{{ complex.contact_email }}?subject={{ ('Consulta turnos - ' ~ complex.name)|urlencode }}" class="btn-secondary">Email</a>
+      {% endif %}
+      {% if complex.address %}
+        <a href="https://maps.google.com/?q={{ complex.address|urlencode }}" target="_blank" rel="noopener" class="btn-secondary">Cómo llegar</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="md:col-span-2">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Dirección</h3>
+      <div class="text-gray-700">{{ complex.address or '—' }}</div>
+      {% if complex.address %}
+        <div class="mt-3 aspect-video w-full overflow-hidden rounded-md border">
+          <iframe title="Mapa" class="w-full h-full" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                  src="https://www.google.com/maps?q={{ complex.address|urlencode }}&output=embed"></iframe>
+        </div>
+      {% endif %}
+    </div>
+    <div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Contacto</h3>
+      <ul class="space-y-1 text-gray-700">
+        <li><strong>Teléfono:</strong> {{ complex.contact_phone or '—' }}</li>
+        <li><strong>Email:</strong> {{ complex.contact_email or '—' }}</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+{% if complex.photos %}
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
+  <h3 class="text-lg font-medium text-gray-900 mb-4">Galería</h3>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {% for p in complex.photos %}
+      <img src="{{ url_for('static', filename=p.path) }}" alt="Foto {{ loop.index }} de {{ complex.name }}" class="w-full h-40 object-cover rounded-md">
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
 
 <!-- Filters -->
-<div class="bg-white rounded-lg shadow-md p-6 mb-6">
-    {% include 'partials/_filters.html' %}
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
+  {% include 'partials/_filters.html' %}
+  <!-- Ensure category=deportes for this view -->
+  <script>
+    (function () {
+      var form = document.getElementById('filters-form');
+      if (!form) return;
+      var cat = form.querySelector("input[name='category']");
+      if (cat) { cat.value = 'deportes'; }
+      // ensure complex_slug is present inside the form
+      var existing = form.querySelector("input[name='complex_slug']");
+      if (!existing) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'complex_slug';
+        inp.value = '{{ complex.slug }}';
+        form.appendChild(inp);
+      } else {
+        existing.value = '{{ complex.slug }}';
+      }
+    })();
+  </script>
 </div>
 
 <!-- Legend -->
 <div class="mb-6">
-    {% include 'partials/_legend.html' %}
+  {% include 'partials/_legend.html' %}
 </div>
 
 <!-- Turnos for this complex -->
-<div id="turnos-container" class="bg-white rounded-lg shadow-md">
-    <div class="p-6">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos de {{ complex.name }}</h2>
-        <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
-    </div>
+<div id="turnos-container" class="bg-white rounded-lg shadow-sm border border-gray-100">
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos de {{ complex.name }}</h2>
+    <p class="text-gray-600">Se cargan los turnos disponibles para este complejo.</p>
+  </div>
+  <div id="complex-error" class="mx-6 mb-4 alert-danger hidden"></div>
+  <!-- Auto-load day view on first paint using HTMX -->
+  <div class="hidden"
+       hx-get="{{ url_for('ui.turnos_table') }}"
+       hx-target="#turnos-container"
+       hx-include="#filters-form [name='date'], #filters-form [name='status'], #filters-form [name='complex_slug'], #filters-form [name='sport_service'], #filters-form [name='category']"
+       hx-trigger="load">
+  </div>
 </div>
 
-<!-- Hidden inputs for HTMX -->
-<input type="hidden" name="complex_slug" value="{{ complex.slug }}">
+<script>
+  (function () {
+    var errorBox = document.getElementById('complex-error');
+    if (!errorBox) return;
+    document.addEventListener('htmx:responseError', function (evt) {
+      try {
+        if (evt && evt.detail && evt.detail.xhr && evt.detail.xhr.status === 403) {
+          errorBox.textContent = 'Reservas online deshabilitadas para este complejo.';
+          errorBox.classList.remove('hidden');
+        }
+      } catch (e) { /* noop */ }
+    });
+  })();
+  </script>
+
 {% endblock %}

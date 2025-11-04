@@ -1,0 +1,61 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuración de Centros de Estética</h2>
+
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">{{ message_text }}</div>
+  {% endif %}
+
+  <div class="overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Centro</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Visible público</th>
+          {% if current_user.is_superadmin %}
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Modo reserva</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Servicio fijo</th>
+          {% endif %}
+          <th class="px-4 py-2"></th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {% for c in centers %}
+        <tr>
+          <td class="px-4 py-2 text-sm">{{ c.name }}</td>
+          <td class="px-4 py-2 text-sm">{{ c.slug }}</td>
+          <td class="px-4 py-2 text-sm">
+            <form id="beauty-form-{{ c.id }}" method="post" action="{{ url_for('admin.beauty_update_settings') }}" class="inline-flex items-center gap-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <input type="hidden" name="center_id" value="{{ c.id }}"/>
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" name="show_public_booking" value="1" class="form-checkbox" {% if c.show_public_booking %}checked{% endif %}>
+                <span class="text-xs text-gray-600">Mostrar en página pública</span>
+              </label>
+          </td>
+          {% if current_user.is_superadmin %}
+            <td class="px-4 py-2 text-sm">
+              <select name="booking_mode" class="form-input" form="beauty-form-{{ c.id }}">
+                <option value="flexible" {% if c.booking_mode == 'flexible' %}selected{% endif %}>Flexible</option>
+                <option value="fixed" {% if c.booking_mode == 'fixed' %}selected{% endif %}>Solo cortes (fijo)</option>
+              </select>
+            </td>
+            <td class="px-4 py-2 text-sm">
+              <select name="fixed_service_id" class="form-input" {% if c.booking_mode != 'fixed' %}disabled{% endif %} form="beauty-form-{{ c.id }}">
+                <option value="">(ninguno)</option>
+                {% for s in c.linked_services %}
+                  <option value="{{ s.id }}" {% if c.fixed_service_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+              </select>
+            </td>
+          {% endif %}
+          <td class="px-4 py-2 text-sm">
+            <button type="submit" form="beauty-form-{{ c.id }}" class="btn-primary">Guardar</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>

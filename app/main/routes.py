@@ -1,6 +1,7 @@
 from flask import render_template, request, jsonify, flash, redirect, url_for
 from app.main import bp
 from app.models import Category, Complex, Timeslot, Field, Service
+from app.models_catalog import BeautyCenter, Professional
 from app.utils import validate_category, clean_text
 from app import db
 from datetime import datetime, timedelta
@@ -32,6 +33,30 @@ def complex_detail(slug):
     complex_obj = Complex.query.filter_by(slug=slug).first_or_404()
     return render_template('main/complex.html', complex=complex_obj)
 
+@bp.route('/centros/<slug>')
+def beauty_center_detail(slug):
+    """Beauty center detail page"""
+    center = BeautyCenter.query.filter_by(slug=slug).first_or_404()
+    return render_template('main/beauty_center.html', center=center)
+
+@bp.route('/r/<slug>')
+def vanity_resolver(slug):
+    """Resolve single-segment vanity slugs to the right detail page.
+
+    Order: Complex -> BeautyCenter. Extendable to Professional.
+    """
+    c = Complex.query.filter_by(slug=slug).first()
+    if c:
+        return redirect(url_for('main.complex_detail', slug=slug), code=302)
+    b = BeautyCenter.query.filter_by(slug=slug).first()
+    if b:
+        return redirect(url_for('main.beauty_center_detail', slug=slug), code=302)
+    p = Professional.query.filter_by(slug=slug).first()
+    if p:
+        return redirect(url_for('main.professional_detail', slug=slug), code=302)
+    flash('Página no encontrada.', 'error')
+    return redirect(url_for('main.index'))
+
 @bp.route('/publicar')
 def publish():
     """Lead generation form for businesses"""
@@ -56,3 +81,9 @@ def unsubscribe(token):
         flash('Ya estás desuscrito de las notificaciones.', 'info')
     
     return render_template('main/unsubscribe.html', subscription=subscription)
+
+@bp.route('/profesionales/<slug>')
+def professional_detail(slug):
+    """Professional detail page (classic or per-day mode)."""
+    prof = Professional.query.filter_by(slug=slug, is_active=True).first_or_404()
+    return render_template('main/professional.html', professional=prof)

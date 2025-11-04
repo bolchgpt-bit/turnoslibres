@@ -5,7 +5,7 @@ from app.admin.forms import LoginForm, RegistrationForm, ProfessionalForm, Beaut
 from app.models import AppUser, Complex, Category, Service, Field, Timeslot, TimeslotStatus, UserComplex, user_professionals, user_beauty_centers
 from app.models_catalog import Professional, BeautyCenter, SportsComplex, professional_services, beauty_center_services
 from app import db
-from app.services.timeslot_generation import generate_timeslots_for_field
+from app.services.timeslot_generation import generate_timeslots_for_field, generate_timeslots_for_professional
 from app.security import superadmin_required
 from app.utils import (
     user_can_manage_complex,
@@ -20,6 +20,13 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, or_
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from markupsafe import escape
+import os
+import uuid
+from werkzeug.utils import secure_filename
+from app.models_catalog import BeautyCenter
+from app.models_catalog import Professional
+from app.models import user_beauty_centers, user_professionals
+from app.models_catalog import Professional
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -75,6 +82,191 @@ def panel():
     """Muestra el panel de administración."""
     return render_template('admin/panel.html')
 
+@bp.route('/professional_settings')
+@login_required
+def professional_settings():
+    """HTMX partial listing professional booking settings (superadmin or profesionales)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+
+    return render_template('admin/partials/_professional_settings.html', professionals=professionals)
+
+@bp.route('/professional_settings/update', methods=['POST'])
+@login_required
+def professional_update_settings():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    prof_id = request.form.get('professional_id', type=int)
+    mode = request.form.get('booking_mode', 'classic')
+    slot_duration_min = request.form.get('slot_duration_min', type=int)
+    daily_quota = request.form.get('daily_quota', type=int)
+    show_public_booking = bool(request.form.get('show_public_booking'))
+
+    prof = Professional.query.get_or_404(prof_id)
+    # Scope: user must be linked unless superadmin
+    if not current_user.is_superadmin:
+        link = db.session.execute(
+            db.select(user_professionals).where(
+                user_professionals.c.user_id == current_user.id,
+                user_professionals.c.professional_id == prof.id,
+            )
+        ).first()
+        if not link:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    if mode not in ('classic', 'per_day'):
+        mode = 'classic'
+    prof.booking_mode = mode
+    if slot_duration_min is not None:
+        if slot_duration_min <= 0 or slot_duration_min > 480:
+            slot_duration_min = None
+        prof.slot_duration_min = slot_duration_min
+    if daily_quota is not None:
+        if daily_quota < 0 or daily_quota > 100:
+            daily_quota = 0
+        prof.daily_quota = daily_quota
+
+    prof.show_public_booking = show_public_booking
+    db.session.commit()
+
+    # Rerender settings table
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+    return render_template('admin/partials/_professional_settings.html', professionals=professionals, message_text='Guardado', message_category='success')
+
+@bp.route('/pro_timeslots/bulk_form')
+@login_required
+def pro_timeslots_bulk_form():
+    """HTMX partial to generate timeslots in bulk for professionals."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+    return render_template('admin/partials/_pro_timeslot_bulk_form.html', professionals=professionals)
+
+@bp.route('/pro_timeslots/bulk_create', methods=['POST'])
+@login_required
+def pro_timeslots_bulk_create():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'profesionales')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    professional_id = request.form.get('professional_id', type=int)
+    service_id = request.form.get('service_id', type=int)
+    start_date = request.form.get('start_date')
+    end_date = request.form.get('end_date')
+    start_time = request.form.get('start_time')
+    end_time = request.form.get('end_time')
+    duration_min = request.form.get('duration_min', type=int)
+    interval_min = request.form.get('interval_min', type=int)
+    weekdays = request.form.getlist('weekdays')
+    price_raw = (request.form.get('price') or '').strip()
+    currency = (request.form.get('currency') or 'ARS').strip()[:3]
+
+    msg = ''
+    cat = 'success'
+
+    prof = Professional.query.get(professional_id) if professional_id else None
+    srv = Service.query.get(service_id) if service_id else None
+
+    if not prof or not srv or not srv.is_active:
+        msg, cat = 'Datos inválidos', 'error'
+
+    # Scope
+    if cat == 'success' and not current_user.is_superadmin:
+        link = db.session.execute(
+            db.select(user_professionals).where(
+                user_professionals.c.user_id == current_user.id,
+                user_professionals.c.professional_id == prof.id,
+            )
+        ).first()
+        if not link:
+            return jsonify({'error': 'Unauthorized'}), 403
+        if srv not in prof.linked_services:
+            msg, cat = 'El servicio no está vinculado al profesional', 'error'
+
+    # Parse dates/times
+    if cat == 'success':
+        try:
+            from datetime import datetime as _dt, time as _time
+            sd = _dt.strptime(start_date, '%Y-%m-%d').date()
+            ed = _dt.strptime(end_date, '%Y-%m-%d').date()
+            st = _dt.strptime(start_time, '%H:%M').time()
+            et = _dt.strptime(end_time, '%H:%M').time()
+        except Exception:
+            msg, cat = 'Fechas/horas inválidas', 'error'
+
+    # Duration default to service
+    if cat == 'success':
+        dur = int(duration_min or int(srv.duration_min or 60))
+        step = int(interval_min or dur)
+        if dur < 15 or dur > 360:
+            msg, cat = 'Duración inválida', 'error'
+
+    # Price
+    price = None
+    if cat == 'success' and price_raw:
+        try:
+            price = float(price_raw.replace(',', '.'))
+            if price < 0:
+                raise ValueError()
+        except Exception:
+            msg, cat = 'Precio inválido', 'error'
+
+    # Weekdays
+    if cat == 'success':
+        try:
+            wds = [int(w) for w in weekdays] if weekdays else [0,1,2,3,4]
+        except Exception:
+            wds = [0,1,2,3,4]
+
+        created, skipped = generate_timeslots_for_professional(
+            professional=prof,
+            service_id=srv.id,
+            start_date=sd,
+            end_date=ed,
+            start_time=st,
+            end_time=et,
+            duration_min=dur,
+            interval_min=step,
+            weekdays=wds,
+            price=price,
+            currency=currency or 'ARS',
+        )
+        msg = f'Turnos creados: {created}, omitidos: {skipped}'
+
+    # Rerender form
+    if current_user.is_superadmin:
+        professionals = Professional.query.order_by(Professional.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_professionals.c.professional_id).where(user_professionals.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        professionals = Professional.query.filter(Professional.id.in_(ids)).order_by(Professional.name).all() if ids else []
+    return render_template('admin/partials/_pro_timeslot_bulk_form.html', professionals=professionals, message_text=msg, message_category=cat)
+
 @bp.route('/super')
 @login_required
 @superadmin_required
@@ -85,6 +277,437 @@ def super_admin():
         return redirect(url_for('admin.panel'))
     
     return render_template('admin/super.html')
+
+
+def _allowed_image(filename: str) -> bool:
+    exts = {'.jpg', '.jpeg', '.png', '.webp'}
+    name = (filename or '').lower()
+    return any(name.endswith(e) for e in exts)
+
+
+@bp.route('/complex_photos')
+@login_required
+def complex_photos():
+    """HTMX partial to manage complex photos (max 10)."""
+    complex_id = request.args.get('complex_id', type=int)
+    if not complex_id:
+        return jsonify({'error': 'complex_id requerido'}), 400
+    cpx = Complex.query.get_or_404(complex_id)
+
+    # Authorization: superadmin or linked to complex
+    if not (current_user.is_superadmin or user_can_manage_complex(current_user, cpx.id)):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    photos = cpx.photos
+    return render_template('admin/partials/_complex_photos.html', complex=cpx, photos=photos)
+
+
+@bp.route('/complex_photos/upload', methods=['POST'])
+@login_required
+def complex_photos_upload():
+    complex_id = request.form.get('complex_id', type=int)
+    if not complex_id:
+        return jsonify({'error': 'complex_id requerido'}), 400
+    cpx = Complex.query.get_or_404(complex_id)
+
+    if not (current_user.is_superadmin or user_can_manage_complex(current_user, cpx.id)):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    message_text = None
+    message_category = None
+
+    # Limit to 10
+    if len(cpx.photos) >= 10:
+        message_text = 'Límite de 10 fotos alcanzado'
+        message_category = 'error'
+    else:
+        file = request.files.get('photo')
+        if not file or not file.filename:
+            message_text = 'Archivo requerido'
+            message_category = 'error'
+        elif not _allowed_image(file.filename):
+            message_text = 'Formato no permitido (solo JPG, PNG, WEBP)'
+            message_category = 'error'
+        else:
+            # Build path under static/uploads/complexes/<slug>/
+            base_static = current_app.config.get('STATIC_ROOT', None)
+            # Default to app/static if not configured
+            if not base_static:
+                base_static = os.path.join(current_app.root_path, 'static')
+            rel_dir = os.path.join('uploads', 'complexes', cpx.slug)
+            abs_dir = os.path.join(base_static, rel_dir)
+            os.makedirs(abs_dir, exist_ok=True)
+
+            ext = os.path.splitext(file.filename)[1].lower()
+            fname = secure_filename(f"{uuid.uuid4().hex}{ext}")
+            abs_path = os.path.join(abs_dir, fname)
+            rel_path = os.path.join(rel_dir, fname).replace('\\', '/')
+
+            try:
+                file.save(abs_path)
+                # Rank next
+                next_rank = (cpx.photos[-1].rank + 1) if cpx.photos else 0
+                from app.models import ComplexPhoto  # local import to avoid circular
+                photo = ComplexPhoto(complex_id=cpx.id, path=rel_path, rank=next_rank)
+                db.session.add(photo)
+                db.session.commit()
+                message_text = 'Foto subida correctamente'
+                message_category = 'success'
+            except Exception as e:
+                current_app.logger.exception('Upload failed: %s', e)
+                message_text = 'No se pudo subir la foto'
+                message_category = 'error'
+
+    return render_template('admin/partials/_complex_photos.html', complex=cpx, photos=cpx.photos,
+                          message_text=message_text, message_category=message_category)
+
+
+@bp.route('/complex_photos/delete', methods=['POST'])
+@login_required
+def complex_photos_delete():
+    photo_id = request.form.get('photo_id', type=int)
+    if not photo_id:
+        return jsonify({'error': 'photo_id requerido'}), 400
+    from app.models import ComplexPhoto
+    photo = ComplexPhoto.query.get_or_404(photo_id)
+    cpx = Complex.query.get_or_404(photo.complex_id)
+
+    if not (current_user.is_superadmin or user_can_manage_complex(current_user, cpx.id)):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Remove file best-effort
+    try:
+        base_static = current_app.config.get('STATIC_ROOT', None) or os.path.join(current_app.root_path, 'static')
+        abs_path = os.path.join(base_static, photo.path)
+        if os.path.isfile(abs_path):
+            os.remove(abs_path)
+    except Exception as e:
+        current_app.logger.warning('Could not delete photo file: %s', e)
+
+    db.session.delete(photo)
+    db.session.commit()
+
+    return render_template('admin/partials/_complex_photos.html', complex=cpx, photos=cpx.photos,
+                          message_text='Foto eliminada', message_category='success')
+
+
+@bp.route('/beauty_photos')
+@login_required
+def beauty_photos():
+    center_id = request.args.get('center_id', type=int)
+    if not center_id:
+        return jsonify({'error': 'center_id requerido'}), 400
+    center = BeautyCenter.query.get_or_404(center_id)
+
+    # Authorization: superadmin or user linked to center via user_beauty_centers
+    allowed = False
+    if current_user.is_superadmin:
+        allowed = True
+    else:
+        link = db.session.execute(
+            db.select(user_beauty_centers).where(
+                user_beauty_centers.c.user_id == current_user.id,
+                user_beauty_centers.c.beauty_center_id == center.id,
+            )
+        ).first()
+        allowed = bool(link)
+    if not allowed:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    return render_template('admin/partials/_beauty_photos.html', center=center, photos=center.photos)
+
+
+@bp.route('/beauty_photos/upload', methods=['POST'])
+@login_required
+def beauty_photos_upload():
+    center_id = request.form.get('center_id', type=int)
+    if not center_id:
+        return jsonify({'error': 'center_id requerido'}), 400
+    center = BeautyCenter.query.get_or_404(center_id)
+
+    allowed = False
+    if current_user.is_superadmin:
+        allowed = True
+    else:
+        link = db.session.execute(
+            db.select(user_beauty_centers).where(
+                user_beauty_centers.c.user_id == current_user.id,
+                user_beauty_centers.c.beauty_center_id == center.id,
+            )
+        ).first()
+        allowed = bool(link)
+    if not allowed:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    message_text = None
+    message_category = None
+
+    if len(center.photos) >= 10:
+        message_text = 'Límite de 10 fotos alcanzado'
+        message_category = 'error'
+    else:
+        file = request.files.get('photo')
+        if not file or not file.filename:
+            message_text = 'Archivo requerido'
+            message_category = 'error'
+        elif not _allowed_image(file.filename):
+            message_text = 'Formato no permitido (solo JPG, PNG, WEBP)'
+            message_category = 'error'
+        else:
+            base_static = current_app.config.get('STATIC_ROOT', None) or os.path.join(current_app.root_path, 'static')
+            rel_dir = os.path.join('uploads', 'beauty_centers', center.slug)
+            abs_dir = os.path.join(base_static, rel_dir)
+            os.makedirs(abs_dir, exist_ok=True)
+
+            ext = os.path.splitext(file.filename)[1].lower()
+            fname = secure_filename(f"{uuid.uuid4().hex}{ext}")
+            abs_path = os.path.join(abs_dir, fname)
+            rel_path = os.path.join(rel_dir, fname).replace('\\', '/')
+
+            try:
+                file.save(abs_path)
+                from app.models_catalog import BeautyCenterPhoto
+                next_rank = (center.photos[-1].rank + 1) if center.photos else 0
+                photo = BeautyCenterPhoto(beauty_center_id=center.id, path=rel_path, rank=next_rank)
+                db.session.add(photo)
+                db.session.commit()
+                message_text = 'Foto subida correctamente'
+                message_category = 'success'
+            except Exception as e:
+                current_app.logger.exception('Upload failed: %s', e)
+                message_text = 'No se pudo subir la foto'
+                message_category = 'error'
+
+    return render_template('admin/partials/_beauty_photos.html', center=center, photos=center.photos,
+                          message_text=message_text, message_category=message_category)
+
+
+@bp.route('/beauty_photos/delete', methods=['POST'])
+@login_required
+def beauty_photos_delete():
+    photo_id = request.form.get('photo_id', type=int)
+    if not photo_id:
+        return jsonify({'error': 'photo_id requerido'}), 400
+    from app.models_catalog import BeautyCenterPhoto
+    photo = BeautyCenterPhoto.query.get_or_404(photo_id)
+    center = BeautyCenter.query.get_or_404(photo.beauty_center_id)
+
+    allowed = False
+    if current_user.is_superadmin:
+        allowed = True
+    else:
+        link = db.session.execute(
+            db.select(user_beauty_centers).where(
+                user_beauty_centers.c.user_id == current_user.id,
+                user_beauty_centers.c.beauty_center_id == center.id,
+            )
+        ).first()
+        allowed = bool(link)
+    if not allowed:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        base_static = current_app.config.get('STATIC_ROOT', None) or os.path.join(current_app.root_path, 'static')
+        abs_path = os.path.join(base_static, photo.path)
+        if os.path.isfile(abs_path):
+            os.remove(abs_path)
+    except Exception as e:
+        current_app.logger.warning('Could not delete photo file: %s', e)
+
+    db.session.delete(photo)
+    db.session.commit()
+
+    return render_template('admin/partials/_beauty_photos.html', center=center, photos=center.photos,
+                          message_text='Foto eliminada', message_category='success')
+
+
+@bp.route('/beauty_settings')
+@login_required
+def beauty_settings():
+    """HTMX partial listing beauty center public visibility settings."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if current_user.is_superadmin:
+        centers = BeautyCenter.query.order_by(BeautyCenter.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        centers = BeautyCenter.query.filter(BeautyCenter.id.in_(ids)).order_by(BeautyCenter.name).all() if ids else []
+
+    return render_template('admin/partials/_beauty_settings.html', centers=centers)
+
+
+@bp.route('/beauty_settings/update', methods=['POST'])
+@login_required
+def beauty_update_settings():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'estetica')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    center_id = request.form.get('center_id', type=int)
+    show_public_booking = bool(request.form.get('show_public_booking'))
+    booking_mode = (request.form.get('booking_mode') or 'flexible').strip()
+    fixed_service_id = request.form.get('fixed_service_id', type=int)
+
+    center = BeautyCenter.query.get_or_404(center_id)
+    # Scope
+    if not current_user.is_superadmin:
+        link = db.session.execute(
+            db.select(user_beauty_centers).where(
+                user_beauty_centers.c.user_id == current_user.id,
+                user_beauty_centers.c.beauty_center_id == center.id,
+            )
+        ).first()
+        if not link:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    center.show_public_booking = show_public_booking
+    # Modo de reserva: solo superadmin puede cambiar booking_mode/fixed_service
+    if current_user.is_superadmin:
+        if booking_mode not in ('flexible', 'fixed'):
+            booking_mode = 'flexible'
+        center.booking_mode = booking_mode  # type: ignore[attr-defined]
+        # Si es fijo, validar servicio seleccionado y alcance
+        if center.booking_mode == 'fixed':  # type: ignore[attr-defined]
+            # fixed_service_id opcional, pero si viene debe estar vinculado al centro
+            if fixed_service_id:
+                srv = Service.query.get(fixed_service_id)
+                if not srv:
+                    return jsonify({'error': 'Servicio fijo inválido'}), 400
+                # Debe estar vinculado al centro
+                linked = db.session.execute(
+                    db.select(beauty_center_services).where(
+                        beauty_center_services.c.beauty_center_id == center.id,
+                        beauty_center_services.c.service_id == srv.id,
+                    )
+                ).first()
+                if not linked:
+                    return jsonify({'error': 'Servicio no vinculado al centro'}), 400
+                center.fixed_service_id = srv.id  # type: ignore[attr-defined]
+            else:
+                center.fixed_service_id = None  # type: ignore[attr-defined]
+        else:
+            center.fixed_service_id = None  # type: ignore[attr-defined]
+    db.session.commit()
+
+    # Rerender
+    if current_user.is_superadmin:
+        centers = BeautyCenter.query.order_by(BeautyCenter.name).all()
+    else:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        centers = BeautyCenter.query.filter(BeautyCenter.id.in_(ids)).order_by(BeautyCenter.name).all() if ids else []
+    return render_template('admin/partials/_beauty_settings.html', centers=centers, message_text='Guardado', message_category='success')
+
+
+@bp.route('/complex_settings')
+@login_required
+def complex_settings():
+    """HTMX partial listing complexes public visibility settings (deportes)."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if current_user.is_superadmin:
+        complexes = Complex.query.order_by(Complex.name).all()
+    else:
+        # complexes linked to user via UserComplex
+        complexes = (
+            Complex.query.join(UserComplex, UserComplex.complex_id == Complex.id)
+            .filter(UserComplex.user_id == current_user.id)
+            .order_by(Complex.name)
+            .all()
+        )
+
+    return render_template('admin/partials/_complex_settings.html', complexes=complexes)
+
+
+@bp.route('/complex_settings/update', methods=['POST'])
+@login_required
+def complex_update_settings():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    complex_id = request.form.get('complex_id', type=int)
+    show_public_booking = bool(request.form.get('show_public_booking'))
+
+    cpx = Complex.query.get_or_404(complex_id)
+    # Scope
+    if not current_user.is_superadmin:
+        allowed = user_can_manage_complex(current_user, cpx.id)
+        if not allowed:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    cpx.show_public_booking = show_public_booking
+    db.session.commit()
+
+    # Rerender
+    if current_user.is_superadmin:
+        complexes = Complex.query.order_by(Complex.name).all()
+    else:
+        complexes = (
+            Complex.query.join(UserComplex, UserComplex.complex_id == Complex.id)
+            .filter(UserComplex.user_id == current_user.id)
+            .order_by(Complex.name)
+            .all()
+        )
+    return render_template('admin/partials/_complex_settings.html', complexes=complexes, message_text='Guardado', message_category='success')
+
+
+@bp.route('/field_settings')
+@login_required
+def field_settings():
+    """HTMX partial listing fields per complex with public visibility toggle."""
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Load complexes in scope
+    if current_user.is_superadmin:
+        complexes = Complex.query.order_by(Complex.name).all()
+    else:
+        complexes = (
+            Complex.query.join(UserComplex, UserComplex.complex_id == Complex.id)
+            .filter(UserComplex.user_id == current_user.id)
+            .order_by(Complex.name)
+            .all()
+        )
+
+    return render_template('admin/partials/_field_settings.html', complexes=complexes)
+
+
+@bp.route('/field_settings/update', methods=['POST'])
+@login_required
+def field_update_settings():
+    if not (current_user.is_superadmin or (getattr(current_user, 'category', None) and getattr(current_user.category, 'slug', None) == 'deportes')):
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    field_id = request.form.get('field_id', type=int)
+    show_public_booking = bool(request.form.get('show_public_booking'))
+
+    f = Field.query.get_or_404(field_id)
+    # Scope
+    if not current_user.is_superadmin:
+        allowed = user_can_manage_complex(current_user, f.complex_id)
+        if not allowed:
+            return jsonify({'error': 'Unauthorized'}), 403
+
+    f.show_public_booking = show_public_booking
+    db.session.commit()
+
+    # Re-render
+    if current_user.is_superadmin:
+        complexes = Complex.query.order_by(Complex.name).all()
+    else:
+        complexes = (
+            Complex.query.join(UserComplex, UserComplex.complex_id == Complex.id)
+            .filter(UserComplex.user_id == current_user.id)
+            .order_by(Complex.name)
+            .all()
+        )
+    return render_template('admin/partials/_field_settings.html', complexes=complexes, message_text='Guardado', message_category='success')
 
 @bp.route('/catalog_forms')
 @login_required
@@ -185,6 +808,7 @@ def catalog_link_service():
     kind = request.form.get('kind')
     entity_id = request.form.get('entity_id', type=int)
     service_id = request.form.get('service_id', type=int)
+    center_id = request.form.get('center_id', type=int)
 
     if not kind or not entity_id or not service_id:
         return jsonify({'success': False, 'message': 'Parámetros inválidos'}), 400
@@ -678,6 +1302,7 @@ def timeslots_create_for_service():
             Timeslot.query
             .filter(
                 Timeslot.service_id == srv.id,
+                Timeslot.beauty_center_id == center.id,
                 Timeslot.start < end_dt,
                 Timeslot.end > start_dt,
             )
@@ -691,6 +1316,7 @@ def timeslots_create_for_service():
     if message_category == 'success':
         t = Timeslot(
             service_id=srv.id,
+            beauty_center_id=center.id,
             start=start_dt,
             end=end_dt,
             price=price,
@@ -976,16 +1602,27 @@ def my_beauty_services_table():
 
     services = []
     seen: set[int] = set()
+    allowed_service_ids: set[int] = set()
     for c in centers:
+        # Calcular servicios permitidos según modo del centro
+        if getattr(c, 'booking_mode', 'flexible') == 'fixed' and getattr(c, 'fixed_service_id', None):
+            allowed_service_ids.add(int(c.fixed_service_id))  # type: ignore[arg-type]
+        else:
+            for s in c.linked_services:
+                if s.category and s.category.slug == 'estetica':
+                    allowed_service_ids.add(s.id)
+        # Armar listado de servicios visibles (solo los permitidos si hay restricción)
         for s in c.linked_services:
             if not s.category or s.category.slug != 'estetica':
+                continue
+            if allowed_service_ids and s.id not in allowed_service_ids:
                 continue
             if s.id in seen:
                 continue
             seen.add(s.id)
             services.append(s)
     services = sorted(services, key=lambda s: (s.name or '').lower())
-    return render_template('admin/partials/_my_services_beauty_table.html', services=services)
+    return render_template('admin/partials/_my_services_beauty_table.html', services=services, allowed_service_ids=allowed_service_ids)
 
 
 # ----- Edición inline de servicios (Profesionales) -----
@@ -1041,6 +1678,14 @@ def my_services_update():
     if not srv or not (srv.category and srv.category.slug == 'profesionales'):
         message_text = 'Servicio inválido'
         message_category = 'error'
+
+    # Validación de centro
+    center = None
+    if message_category == 'success':
+        center = BeautyCenter.query.get(center_id) if center_id else None
+        if not center:
+            message_text = 'Centro requerido'
+            message_category = 'error'
 
     # Alcance
     if message_category == 'success' and not current_user.is_superadmin:
@@ -1264,7 +1909,38 @@ def timeslots_quick_form_beauty():
         else:
             return jsonify({'error': 'Unauthorized'}), 403
 
-    return render_template('admin/partials/_quick_timeslot_form_beauty.html', service=srv)
+    # Centros disponibles para este servicio según alcance
+    if current_user.is_superadmin:
+        centers = (
+            BeautyCenter.query
+            .join(beauty_center_services, beauty_center_services.c.beauty_center_id == BeautyCenter.id)
+            .filter(beauty_center_services.c.service_id == srv.id)
+            .order_by(BeautyCenter.name)
+            .all()
+        )
+    else:
+        rows = db.session.execute(
+            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
+        ).all()
+        ids = [r[0] for r in rows]
+        centers = (
+            BeautyCenter.query
+            .join(beauty_center_services, beauty_center_services.c.beauty_center_id == BeautyCenter.id)
+            .filter(
+                BeautyCenter.id.in_(ids) if ids else db.text('1=0'),
+                beauty_center_services.c.service_id == srv.id,
+            )
+            .order_by(BeautyCenter.name)
+            .all()
+        )
+
+    # Si el centro está en modo fijo, solo permitir el servicio fijo
+    centers = [
+        c for c in centers
+        if (getattr(c, 'booking_mode', 'flexible') != 'fixed') or (getattr(c, 'fixed_service_id', None) == srv.id)
+    ]
+
+    return render_template('admin/partials/_quick_timeslot_form_beauty.html', service=srv, centers=centers)
 
 
 @bp.route('/timeslots/create_for_service_quick_beauty', methods=['POST'])
@@ -1275,6 +1951,7 @@ def timeslots_create_for_service_quick_beauty():
         return jsonify({'error': 'Unauthorized'}), 403
 
     service_id = request.form.get('service_id', type=int)
+    center_id = request.form.get('center_id', type=int)
     start_str = (request.form.get('start') or '').strip()
     price_raw = (request.form.get('price') or '').strip()
 
@@ -1282,27 +1959,48 @@ def timeslots_create_for_service_quick_beauty():
     message_category = 'success'
 
     srv = Service.query.get(service_id) if service_id else None
+    center = BeautyCenter.query.get(center_id) if center_id else None
     if not srv or not srv.is_active:
         message_text = 'Servicio inválido'
         message_category = 'error'
+    if message_category == 'success' and not center:
+        message_text = 'Centro requerido'
+        message_category = 'error'
 
     # Alcance
-    if message_category == 'success' and not current_user.is_superadmin:
-        rows = db.session.execute(
-            db.select(user_beauty_centers.c.beauty_center_id).where(user_beauty_centers.c.user_id == current_user.id)
-        ).all()
-        ids = [r[0] for r in rows]
-        if ids:
+    if message_category == 'success':
+        if current_user.is_superadmin:
             linked = db.session.execute(
                 db.select(beauty_center_services).where(
-                    beauty_center_services.c.beauty_center_id.in_(ids),
+                    beauty_center_services.c.beauty_center_id == center.id,
                     beauty_center_services.c.service_id == srv.id,
                 )
             ).first()
             if not linked:
-                return jsonify({'error': 'Unauthorized'}), 403
+                message_text = 'El servicio no está vinculado al centro'
+                message_category = 'error'
         else:
-            return jsonify({'error': 'Unauthorized'}), 403
+            link_user = db.session.execute(
+                db.select(user_beauty_centers).where(
+                    user_beauty_centers.c.user_id == current_user.id,
+                    user_beauty_centers.c.beauty_center_id == center.id,
+                )
+            ).first()
+            link_srv = db.session.execute(
+                db.select(beauty_center_services).where(
+                    beauty_center_services.c.beauty_center_id == center.id,
+                    beauty_center_services.c.service_id == srv.id,
+                )
+            ).first()
+            if not (link_user and link_srv):
+                return jsonify({'error': 'Unauthorized'}), 403
+
+    # Si el centro es fijo, el servicio debe coincidir
+    if message_category == 'success':
+        if getattr(center, 'booking_mode', 'flexible') == 'fixed':
+            if getattr(center, 'fixed_service_id', None) != srv.id:
+                message_text = 'Centro en modo fijo: servicio no permitido'
+                message_category = 'error'
 
     # Parse fecha
     start_dt = None
@@ -1357,6 +2055,7 @@ def timeslots_create_for_service_quick_beauty():
     if message_category == 'success':
         t = Timeslot(
             service_id=srv.id,
+            beauty_center_id=center.id if center else None,
             start=start_dt,
             end=end_dt,
             price=price,

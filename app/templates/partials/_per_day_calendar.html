@@ -1,0 +1,38 @@
+{#
+  Calendario simple para reserva por día (sin horario)
+  Contexto:
+    - professional: Professional
+    - days: list[dict] -> { date: date, capacity: int, reserved: int }
+    - message: str | None
+#}
+
+<div class="p-4 border-t border-gray-100">
+  {% if message %}
+    <div class="text-sm text-gray-600">{{ message }}</div>
+  {% else %}
+    <form id="per-day-form" class="mb-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <label class="form-label">Email</label>
+      <input type="email" name="email" class="form-input" placeholder="tu@correo.com" hx-preserve id="booker-email">
+    </form>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+      {% for d in days %}
+        {% set free = (d.capacity - d.reserved) %}
+        <button
+          class="px-3 py-2 text-sm rounded-md border text-left {{ 'opacity-50 cursor-not-allowed' if free <= 0 else 'hover:bg-gray-50' }}"
+          {% if free <= 0 %}disabled{% endif %}
+          hx-post="{{ url_for('ui.prof_book_day') }}"
+          hx-target="#per-day-result"
+          hx-include="#per-day-form"
+          hx-vals='{"date":"{{ d.date.isoformat() }}","slug":"{{ professional.slug }}"}'
+        >
+          <div class="font-medium">{{ d.date.strftime('%d/%m') }}</div>
+          <div class="text-xs text-gray-600">Cupos: {{ free }}/{{ d.capacity }}</div>
+        </button>
+      {% endfor %}
+    </div>
+
+    <div id="per-day-result" class="mt-3"></div>
+  {% endif %}
+</div>

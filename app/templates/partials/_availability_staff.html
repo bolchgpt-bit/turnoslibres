@@ -1,0 +1,47 @@
+{#
+  HTMX partial: horarios disponibles por profesional
+  Contexto:
+    - center: BeautyCenter
+    - services: list[Service]
+    - professionals: list[Professional]
+    - grouped_starts: dict[professional_id -> list[datetime]]
+#}
+
+<div class="p-4 border-t border-gray-100">
+  <div class="mb-3">
+    <div class="text-sm text-gray-500">Servicios seleccionados:</div>
+    <div class="text-sm text-gray-900 font-medium">
+      {{ services|map(attribute='name')|join(', ') }}
+    </div>
+  </div>
+
+  {% if not professionals %}
+    <div class="text-sm text-gray-600">No hay profesionales configurados para este centro o que cubran estos servicios.</div>
+  {% else %}
+    <div class="space-y-4">
+      {% for p in professionals %}
+        <div class="border rounded-md">
+          <div class="px-3 py-2 bg-gray-50 border-b flex items-center justify-between">
+            <div class="text-sm font-medium text-gray-900">{{ p.name }}</div>
+            {% if p.specialties %}<div class="text-xs text-gray-500">{{ p.specialties }}</div>{% endif %}
+          </div>
+          <div class="p-3">
+            {% set starts = grouped_starts.get(p.id) or [] %}
+            {% if starts %}
+              <div class="flex flex-wrap gap-2">
+                {% for dt in starts %}
+                  <button class="px-3 py-1.5 text-sm rounded-md border hover:bg-gray-50" aria-label="{{ dt.strftime('%H:%M') }}">
+                    {{ dt.strftime('%H:%M') }}
+                  </button>
+                {% endfor %}
+              </div>
+            {% else %}
+              <div class="text-sm text-gray-600">Sin horarios disponibles.</div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{{ professional.name }} - TurnosLibres.com{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="mb-6">
+  <ol class="flex items-center space-x-2 text-sm text-gray-500">
+    <li><a href="{{ url_for('main.index') }}" class="hover:text-blue-600">Inicio</a></li>
+    <li><span class="mx-2">/</span></li>
+    <li><a href="#" class="hover:text-blue-600">Profesionales</a></li>
+    <li><span class="mx-2">/</span></li>
+    <li class="text-gray-900 font-medium">{{ professional.name }}</li>
+  </ol>
+</nav>
+
+<!-- Header -->
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-semibold text-gray-900">{{ professional.name }}</h1>
+      <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+        {% if professional.city %}
+          <span class="inline-flex items-center gap-1">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-7-10a7 7 0 1 1 14 0c0 5.5-7 10-7 10Z"/><circle cx="12" cy="11" r="3"/></svg>
+            {{ professional.city }}
+          </span>
+        {% endif %}
+        <span class="px-2 py-0.5 rounded-full border text-xs">
+          {% if professional.booking_mode == 'per_day' %}Reserva por día{% else %}Horarios fijos{% endif %}
+        </span>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if professional.phone %}
+        {% set phone_digits = professional.phone|replace(' ', '')|replace('-', '') %}
+        <a href="tel:{{ phone_digits }}" class="btn-secondary">Llamar</a>
+        <a href="https://wa.me/{{ phone_digits }}?text={{ ('Hola, consulto por turnos con ' ~ professional.name ~ ' (' ~ request.url | trim ~ ')')|urlencode }}" target="_blank" rel="noopener" class="btn-primary">WhatsApp</a>
+      {% endif %}
+      {% if professional.website %}
+        <a href="{{ professional.website }}" target="_blank" rel="noopener" class="btn-secondary">Web</a>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if professional.specialties %}
+    <div class="mt-3 text-gray-700">{{ professional.specialties }}</div>
+  {% endif %}
+</section>
+
+<!-- Booking Area -->
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100" id="booking-area">
+  <div id="booking-error" class="mb-3 alert-danger hidden"></div>
+  {% if not professional.show_public_booking %}
+    <p class="text-sm text-gray-600">Este profesional no admite reservas online.</p>
+  {% else %}
+    {% if professional.booking_mode == 'per_day' %}
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Reservá por día</h3>
+      <div class="hidden"
+           hx-get="{{ url_for('ui.prof_day_calendar') }}?slug={{ professional.slug }}"
+           hx-target="#per-day-container"
+           hx-trigger="load">
+      </div>
+      <div id="per-day-container"></div>
+    {% else %}
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Horarios disponibles</h3>
+      <form id="prof-classic-form" class="flex items-end gap-3 mb-3">
+        <div>
+          <label class="form-label">Fecha</label>
+          <input type="date" name="date" class="form-input">
+        </div>
+        <input type="hidden" name="slug" value="{{ professional.slug }}">
+      </form>
+      <div class="hidden"
+           hx-get="{{ url_for('ui.prof_availability') }}"
+           hx-target="#prof-times-container"
+           hx-include="#prof-classic-form"
+           hx-trigger="change from:#prof-classic-form, load">
+      </div>
+      <div id="prof-times-container"></div>
+    {% endif %}
+  {% endif %}
+</section>
+
+<script>
+  (function () {
+    var errorBox = document.getElementById('booking-error');
+    if (!errorBox) return;
+    document.addEventListener('htmx:responseError', function (evt) {
+      try {
+        if (evt && evt.detail && evt.detail.xhr && evt.detail.xhr.status === 403) {
+          errorBox.textContent = 'Reservas online deshabilitadas para este profesional.';
+          errorBox.classList.remove('hidden');
+        }
+      } catch (e) { /* noop */ }
+    });
+  })();
+  </script>
+
+{% endblock %}

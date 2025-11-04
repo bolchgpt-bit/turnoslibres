@@ -1,0 +1,54 @@
+<div class="p-4">
+  {% if message_text %}
+    <div class="alert alert-{{ 'error' if message_category == 'error' else message_category }} mb-3">{{ message_text }}</div>
+  {% endif %}
+
+  <h3 class="text-lg font-semibold text-gray-900 mb-3">Fotos de {{ center.name }}</h3>
+
+  <div class="mb-4 text-sm text-gray-600">Máximo 10 fotos. Formatos permitidos: JPG, PNG, WEBP.</div>
+
+  <form method="post" enctype="multipart/form-data"
+        hx-post="{{ url_for('admin.beauty_photos_upload') }}"
+        hx-target="#beauty-photos-body"
+        hx-swap="outerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="center_id" value="{{ center.id }}"/>
+    <div class="flex items-center gap-3">
+      <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="form-input" required>
+      <button type="submit" class="btn-primary">Subir</button>
+    </div>
+  </form>
+
+  <div id="beauty-photos-body" class="mt-5">
+    {% if photos %}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {% for p in photos %}
+          <div class="border rounded-md overflow-hidden">
+            <img src="{{ url_for('static', filename=p.path) }}" alt="Foto {{ loop.index }} de {{ center.name }}" class="w-full h-40 object-cover">
+            <div class="p-2 flex items-center justify-between text-sm">
+              <span>#{{ p.rank }}</span>
+              <form method="post" hx-post="{{ url_for('admin.beauty_photos_delete') }}" hx-target="#beauty-photos-body" hx-swap="outerHTML">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="photo_id" value="{{ p.id }}"/>
+                <button type="submit" class="text-red-600 hover:text-red-800">Eliminar</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-gray-600">Aún no hay fotos.</div>
+    {% endif %}
+  </div>
+
+  <div class="mt-4">
+    <button type="button" class="btn-secondary" onclick="hideBeautyPhotosModal()">Cerrar</button>
+  </div>
+</div>
+
+<script>
+  function hideBeautyPhotosModal(){
+    var m=document.getElementById('beauty-photos-modal'); if(m){ m.classList.add('hidden'); }
+  }
+</script>
+

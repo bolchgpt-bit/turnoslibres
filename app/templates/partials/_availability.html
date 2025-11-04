@@ -1,0 +1,40 @@
+{#
+  HTMX partial: muestra horarios disponibles para un centro y servicio(s)
+  Contexto requerido:
+    - center: BeautyCenter | None
+    - services: list[Service]
+    - available_starts: list[datetime]
+    - message: str | None
+#}
+
+<div class="p-4 border-t border-gray-100">
+  {% if message %}
+    <div class="text-sm text-gray-600">{{ message }}</div>
+  {% elif not center %}
+    <div class="text-sm text-red-600">Centro no encontrado.</div>
+  {% else %}
+
+  <div class="mb-3">
+    <div class="text-sm text-gray-500">Servicios seleccionados:</div>
+    <div class="text-sm text-gray-900 font-medium">
+      {{ services|map(attribute='name')|join(', ') }}
+    </div>
+  </div>
+
+  {% if available_starts %}
+    <div>
+      <div class="text-sm text-gray-600 mb-2">Horarios de inicio disponibles</div>
+      <div class="flex flex-wrap gap-2">
+        {% for dt in available_starts %}
+          <button class="px-3 py-1.5 text-sm rounded-md border hover:bg-gray-50"
+                  aria-label="{{ dt.strftime('%H:%M') }}">
+            {{ dt.strftime('%H:%M') }}
+          </button>
+        {% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="text-sm text-gray-600">No hay horarios disponibles para esta fecha.</div>
+  {% endif %}
+  {% endif %}
+</div>

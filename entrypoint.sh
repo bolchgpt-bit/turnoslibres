@@ -13,7 +13,8 @@ echo "Database is up!"
 
 # Run migrations (support multiple heads)
 echo "Running database migrations..."
-flask db upgrade heads
+# Ensure Flask CLI knows the app factory; avoids env.py current_app errors
+flask --app app:create_app db upgrade heads
 
 # Check if database is empty and seed if needed
 echo "Checking if database needs seeding..."
