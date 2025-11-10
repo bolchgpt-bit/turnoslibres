@@ -21,6 +21,9 @@ class AppUser(UserMixin, db.Model):
     __tablename__ = 'app_users'
     
     id = db.Column(db.Integer, primary_key=True)
+     # Nombre visible del usuario (para paneles, mails, etc.).
+    # Se deja nullable=True para compatibilidad con datos existentes.
+    name = db.Column(db.String(120), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     is_superadmin = db.Column(db.Boolean, default=False, nullable=False)

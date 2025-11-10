@@ -1,7 +1,16 @@
 ﻿from datetime import datetime
 from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy import text
+from sqlalchemy.types import TypeDecorator, TEXT
 from app import db
+# Compatibilidad: TSVECTOR en Postgres, TEXT en SQLite (para CI/tests)
+class TSVectorCompat(TypeDecorator):
+    impl = TEXT
+    cache_ok = True
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(TSVECTOR())
+        return dialect.type_descriptor(TEXT())
 
 # Base comÃºn para entidades de catÃ¡logo (no usar herencia abstracta de SQLA clÃ¡sica;
 # en Flask-SQLAlchemy cada modelo hereda de db.Model directamente).
@@ -22,7 +31,7 @@ class _CatalogBase:
         onupdate=datetime.utcnow
     )
     # Full-Text Search (PostgreSQL)
-    search_vector = db.Column(TSVECTOR)
+    search_vector = db.Column(TSVectorCompat())
 
 professional_services = db.Table(
     "professional_services",
@@ -57,10 +66,7 @@ class Professional(db.Model, _CatalogBase):
     slot_duration_min = db.Column(db.Integer, nullable=True)
     daily_quota = db.Column(db.Integer, nullable=True)
     show_public_booking = db.Column(db.Boolean, nullable=False, server_default='1')
-    # Configuraci3n de reservas a nivel negocio (centro): flexible o fijo a un servicio
-    booking_mode = db.Column(db.Enum('flexible', 'fixed', name='beauty_center_booking_mode_enum'), nullable=False, server_default='flexible')
-    fixed_service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=True, index=True)
-    fixed_service = db.relationship('Service', foreign_keys=[fixed_service_id])
+
 
 # Ã­ndices
 db.Index("ix_professionals_search_vector", Professional.search_vector, postgresql_using="gin")
@@ -74,6 +80,11 @@ class BeautyCenter(db.Model, _CatalogBase):
     # RelaciÃ³n de servicios ofrecidos por el centro
     linked_services = db.relationship("Service", secondary=beauty_center_services)
     show_public_booking = db.Column(db.Boolean, nullable=False, server_default='1')
+    # Modo de reserva a nivel negocio (centro): flexible o fijo a un servicio
+    booking_mode = db.Column(db.Enum('flexible', 'fixed', name='beauty_center_booking_mode_enum'), nullable=False, server_default='flexible')
+    fixed_service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=True, index=True)
+    fixed_service = db.relationship('Service', foreign_keys=[fixed_service_id])
+
 
 db.Index("ix_beauty_centers_search_vector", BeautyCenter.search_vector, postgresql_using="gin")
 db.Index("ix_beauty_centers_name_ci", text("lower(name)"))
