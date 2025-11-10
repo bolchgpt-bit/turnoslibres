@@ -62,6 +62,35 @@
 - Explicar en **3–5 bullets** qué cambiaste y por qué (sin repetir el diff).
 
 ---
++## 3.1 Migraciones (Alembic) — **Reglas obligatorias**
++
++> Para evitar roturas por `VARCHAR(32)` en `alembic_version.version_num`.
++
++- **Nunca** setear manualmente `revision = "nombre_largo..."`.  
++  Usar el **hash por defecto** de Alembic o un alias **≤ 32 chars**.
++- Si se necesita algo legible, ponerlo en `-m "mensaje"` o `branch_labels`, **no** en `revision`.
++- Toda migración debe cumplir:
++  - `len(revision) <= 32`
++  - `len(down_revision) <= 32` (si aplica)
++- Si se renombra una `revision`, **actualizar todos** los `down_revision` que la referencien.
++- No comitear migraciones por defecto (este repo **las ignora**); si se acuerda versionarlas:
++  - Añadir excepción en `.gitignore` para `migrations/versions/*.py`.
++
++**Comandos estándar**
++```bash
++# Generar migración con hash corto por defecto
++alembic revision -m "mensaje legible"
++
++# Aplicar migraciones
++alembic upgrade head
++```
++
++**Ejemplos válidos de revision id**
++- `ae1027a6acf3` (auto Alembic) ✅
++- `bty_20251022` (alias corto) ✅
++- `beauty_center_photos_20251022` (29 chars) ✅
++- `add_beauty_center_photos_20251022` (33 chars) ❌
++
 
 ## 4. Seguridad y Buenas Prácticas
 - Todas las vistas que modifican estado deben requerir **CSRF token**.
@@ -130,3 +159,10 @@ El proyecto se desarrolla en **Windows 10/11** con:
    Siempre usar:
    ```bash
    "C:\Program Files\Git\cmd\git.exe"
+
+### modo de responder de codex
+
+para evitar que se rompa con codigo 3000 rompiedo git y a veces wsl
+
+el tipo de respuesta tiene que ser que archivos modificar y/o crear y en que linea, la modificacion la haré yo.
+
