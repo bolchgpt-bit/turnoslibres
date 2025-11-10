@@ -561,7 +561,9 @@ def beauty_update_settings():
             )
         ).first()
         if not link:
-            return jsonify({'error': 'Unauthorized'}), 403
+            centers = []
+            return render_template('admin/partials/_beauty_settings.html', centers=centers, message_text='Sin permisos para ese centro', message_category='error')
+
 
     center.show_public_booking = show_public_booking
     # Modo de reserva: solo superadmin puede cambiar booking_mode/fixed_service

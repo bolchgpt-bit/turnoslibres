@@ -78,6 +78,8 @@ class Complex(db.Model):
     address = db.Column(db.Text)
     contact_email = db.Column(db.String(120))
     contact_phone = db.Column(db.String(50))
+    email = db.synonym('contact_email')
+    phone = db.synonym('contact_phone')
     show_public_booking = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

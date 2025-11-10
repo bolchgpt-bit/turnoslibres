@@ -3,7 +3,7 @@ import tempfile
 import os
 from app import create_app, db
 from app.models import AppUser
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 @pytest.fixture
 def app():
@@ -55,3 +55,20 @@ def super_admin_user(app):
         db.session.add(user)
         db.session.commit()
         return user
+    
+@pytest.fixture
+def sample_data(app):
+    from app import db
+    from app.models import Category, Complex, Field, Timeslot, TimeslotStatus
+    from datetime import datetime, timedelta, timezone
+    with app.app_context():
+        cat = Category(slug='deportes', title='Deportes')
+        db.session.add(cat); db.session.flush()
+        cpx = Complex(name='Complejo Test', slug='complejo-test', city='X', show_public_booking=True)
+        db.session.add(cpx); db.session.flush()
+        fld = Field(complex_id=cpx.id, name='Cancha 1', sport='futbol', is_active=True, show_public_booking=True)
+        db.session.add(fld); db.session.flush()
+        now = datetime.now(timezone.utc)
+        ts = Timeslot(field_id=fld.id, start=now + timedelta(hours=2), end=now + timedelta(hours=3), status=TimeslotStatus.AVAILABLE)
+        db.session.add(ts); db.session.commit()
+        return {'category': cat, 'complex': cpx, 'field': fld, 'timeslot': ts}

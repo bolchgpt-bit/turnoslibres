@@ -13,6 +13,7 @@
     <div class="text-sm text-red-600">Profesional no encontrado.</div>
   {% else %}
     {% if starts %}
+      <div class="text-sm font-medium mb-2">Horarios</div>
       <div class="flex flex-wrap gap-2">
         {% for dt in starts %}
           <button class="px-3 py-1.5 text-sm rounded-md border hover:bg-gray-50" aria-label="{{ dt.strftime('%d/%m %H:%M') }}">
@@ -21,7 +22,7 @@
         {% endfor %}
       </div>
     {% else %}
-      <div class="text-sm text-gray-600">No hay horarios disponibles.</div>
+      <div class="text-sm text-gray-600">No hay horarios</div>
     {% endif %}
   {% endif %}
 </div>

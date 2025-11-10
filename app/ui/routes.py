@@ -64,7 +64,7 @@ def turnos_table():
     if complex_slug:
         complex_slug = clean_text(complex_slug, 200)
         if category == 'deportes':
-            query = query.join(Field).join(Complex).filter(Complex.slug == complex_slug)
+            query = query.filter(Complex.slug == complex_slug)
         else:
             # For services, we need to join through the complex-category relationship
             query = query.join(Service).join(Category).join(Category.complexes).filter(Complex.slug == complex_slug)
@@ -89,7 +89,7 @@ def turnos_table():
     if sport_service:
         sport_service = clean_text(sport_service, 100)
         if category == 'deportes':
-            query = query.join(Field).filter(Field.sport.ilike(f'%{sport_service}%'))
+            query = query.filter(Field.sport.ilike(f'%{sport_service}%'))
         else:
             query = query.join(Service).filter(Service.name.ilike(f'%{sport_service}%'))
     
@@ -322,11 +322,8 @@ def beauty_availability():
                                services=[],
                                message='Centro no encontrado.')
     # Enforce public visibility toggle
-    try:
-        if not getattr(center, 'show_public_booking', True):
-            abort(403)
-    except Exception:
-        pass
+    if not getattr(center, 'show_public_booking', True):
+        abort(403)
 
     # Validar fecha
     if not (date_str and validate_date_format(date_str)):

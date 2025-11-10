@@ -26,6 +26,7 @@ def sanitize_input(text, max_length=255):
         return ""
     # Remove potentially dangerous characters
     text = re.sub(r'[<>]', '', str(text))
+    text = re.sub(r'(?<!()"(?!))', '', str(text))
     return text[:max_length].strip()
 
 def generate_csrf_token():
