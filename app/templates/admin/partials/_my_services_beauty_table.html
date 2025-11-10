@@ -41,7 +41,8 @@
           </td>
           <td class="px-6 py-4 whitespace-nowrap text-sm">
             <div class="flex gap-2">
-              <button class="btn-secondary"
+              {% set allowed = (allowed_service_ids is defined and s.id in allowed_service_ids) or (allowed_service_ids is not defined) %}
+              <button class="btn-secondary" {% if not allowed %}disabled title="No disponible por configuración del centro"{% endif %}
                       hx-get="{{ url_for('admin.timeslots_quick_form_beauty') }}?service_id={{ s.id }}"
                       hx-target="#beauty-quick-{{ s.id }}"
                       hx-swap="innerHTML">

@@ -1,0 +1,168 @@
+﻿{% extends "base.html" %}
+
+{% block title %}{{ center.name }} - TurnosLibres.com{% endblock %}
+
+{% block content %}
+<!-- Breadcrumb -->
+<nav class="mb-6">
+  <ol class="flex items-center space-x-2 text-sm text-gray-500">
+    <li><a href="{{ url_for('main.index') }}" class="hover:text-blue-600">Inicio</a></li>
+    <li><span class="mx-2">/</span></li>
+    <li><a href="#" class="hover:text-blue-600">Centros</a></li>
+    <li><span class="mx-2">/</span></li>
+    <li class="text-gray-900 font-medium">{{ center.name }}</li>
+  </ol>
+  {% if current_user.is_authenticated %}
+    <div class="mt-2 text-xs text-gray-500">URL: {{ request.url_root | trim }}centros/{{ center.slug }}</div>
+  {% endif %}
+</nav>
+
+<!-- Hero / Center Info -->
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100" id="availability-section">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-semibold text-gray-900">{{ center.name }}</h1>
+      <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+        {% if center.city %}
+          <span class="inline-flex items-center gap-1"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-7-10a7 7 0 1 1 14 0c0 5.5-7 10-7 10Z"/><circle cx="12" cy="11" r="3"/></svg>{{ center.city }}</span>
+        {% endif %}
+        <span class="bg-purple-50 text-purple-700 px-2 py-0.5 rounded-full">EstÃ©tica</span>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      {% if center.phone %}
+        {% set phone_digits = center.phone|replace(' ', '')|replace('-', '') %}
+        <a href="tel:{{ phone_digits }}" class="btn-secondary">Llamar</a>
+        <a href="https://wa.me/{{ phone_digits }}?text={{ ('Hola, consulto por turnos en ' ~ center.name ~ ' (' ~ request.url | trim ~ ')')|urlencode }}" target="_blank" rel="noopener" class="btn-primary">WhatsApp</a>
+      {% endif %}
+      {% if center.website %}
+        <a href="{{ center.website }}" target="_blank" rel="noopener" class="btn-secondary">Web</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="md:col-span-2">
+      <h3 class="text-lg font-medium text-gray-900 mb-2">DirecciÃ³n</h3>
+      <div class="text-gray-700">{{ center.address or 'â€”' }}</div>
+      {% if center.address %}
+        <div class="mt-3 aspect-video w-full overflow-hidden rounded-md border">
+          <iframe title="Mapa" class="w-full h-full" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                  src="https://www.google.com/maps?q={{ center.address|urlencode }}&output=embed"></iframe>
+        </div>
+      {% endif %}
+    </div>
+    <div>
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Contacto</h3>
+      <ul class="space-y-1 text-gray-700">
+        <li><strong>TelÃ©fono:</strong> {{ center.phone or 'â€”' }}</li>
+        <li><strong>Email:</strong> {{ center.website or 'â€”' }}</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+{% if center.photos %}
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100" id="availability-section">
+  <h3 class="text-lg font-medium text-gray-900 mb-4">GalerÃ­a</h3>
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {% for p in center.photos %}
+      <img src="{{ url_for('static', filename=p.path) }}" alt="Foto {{ loop.index }} de {{ center.name }}" class="w-full h-40 object-cover rounded-md">
+    {% endfor %}
+  </div>
+  </section>
+{% endif %}
+
+<!-- Reserva por servicio (flujo servicio primero) -->
+<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100" id="availability-section">
+  <h3 class="text-lg font-medium text-gray-900 mb-4">ReservÃ¡ por servicio</h3>
+  <form id="service-first-form" class="space-y-3">
+    <input type="hidden" name="beauty_slug" value="{{ center.slug }}">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="form-label">Fecha</label>
+        <input type="date" name="date" class="form-input" value="{{ (request.args.get('date') or (now().date() if false else '')) }}">
+      </div>
+      <div class="md:col-span-2">
+        <label class="form-label">Servicios</label>
+        <div class="flex flex-wrap gap-2">
+          {% for s in center.linked_services %}
+            <label class="inline-flex items-center gap-2 border rounded-md px-2 py-1">
+              <input type="checkbox" name="service_id" value="{{ s.id }}" class="h-4 w-4">
+              <span class="text-sm">{{ s.name }}<span class="text-gray-500"> Â· {{ s.duration_min }} min</span></span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <div class="hidden"
+         hx-get="{{ url_for('ui.beauty_availability') }}"
+         hx-target="#availability-results"
+         hx-include="#service-first-form"
+         hx-trigger="change from:#service-first-form delay:200ms, load">
+    </div>
+  </form>
+  <div id="availability-error" class="mb-3 alert-danger hidden"></div>
+  <div id="availability-results"></div>
+</section>
+
+<!-- Filters -->
+<div class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
+  {% include 'partials/_filters.html' %}
+  <script>
+    (function () {
+      var form = document.getElementById('filters-form');
+      if (!form) return;
+      var cat = form.querySelector("input[name='category']");
+      if (cat) { cat.value = 'estetica'; }
+      // ensure beauty_slug inside the form
+      var existing = form.querySelector("input[name='beauty_slug']");
+      if (!existing) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'beauty_slug';
+        inp.value = '{{ center.slug }}';
+        form.appendChild(inp);
+      } else {
+        existing.value = '{{ center.slug }}';
+      }
+    })();
+  </script>
+  <p class="text-sm text-gray-500 mt-2">Mostrando turnos de este centro.</p>
+  </div>
+
+<!-- Legend -->
+<div class="mb-6">
+  {% include 'partials/_legend.html' %}
+  </div>
+
+<!-- Turnos for this center -->
+<div id="turnos-container" class="bg-white rounded-lg shadow-sm border border-gray-100">
+  <div class="p-6">
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos de {{ center.name }}</h2>
+  </div>
+  <div class="hidden"
+       hx-get="{{ url_for('ui.turnos_table') }}"
+       hx-target="#turnos-container"
+       hx-include="#filters-form [name='date'], #filters-form [name='status'], #filters-form [name='beauty_slug'], #filters-form [name='sport_service'], #filters-form [name='category']"
+       hx-trigger="load">
+  </div>
+</div>
+
+{% endblock %}
+
+
+<script>
+  (function () {
+    var errorBox = document.getElementById('availability-error');
+    if (!errorBox) return;
+    document.addEventListener('htmx:responseError', function (evt) {
+      try {
+        if (evt && evt.detail && evt.detail.xhr && evt.detail.xhr.status === 403) {
+          errorBox.textContent = 'Reservas online deshabilitadas para este centro.';
+          errorBox.classList.remove('hidden');
+        }
+      } catch (e) { /* noop */ }
+    });
+  })();
+  </script>

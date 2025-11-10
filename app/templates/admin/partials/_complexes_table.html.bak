@@ -82,12 +82,6 @@
                                     onclick="showLinkForm({{ complex.id }})">
                                 Canchas
                             </button>
-                            <button class="text-blue-600 hover:text-blue-900 mr-3"
-                                    hx-get="{{ url_for('admin.complex_photos') }}?complex_id={{ complex.id }}"
-                                    hx-target="#photos-modal-content" hx-swap="innerHTML"
-                                    onclick="showPhotosModal()">
-                                Fotos
-                            </button>
                             <button class="text-blue-600 hover:text-blue-900"
                                     onclick="showLinkForm({{ complex.id }})">
                                 Vincular
@@ -109,13 +103,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Photos Modal -->
-    <div id="photos-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center">
-        <div class="bg-white rounded-lg p-0 max-w-3xl w-full overflow-hidden">
-            <div id="photos-modal-content"></div>
-        </div>
-    </div>
 </div>
 
 <script>
@@ -127,8 +114,5 @@ function showLinkForm(complexId) {
 function hideLinkForm() {
     document.getElementById('link-modal').classList.add('hidden');
 }
-
-function showPhotosModal(){
-    document.getElementById('photos-modal').classList.remove('hidden');
-}
 </script>
+

@@ -79,6 +79,10 @@ def create_app(config_name=None):
         """Inyecta helper para obtener token CSRF válido para Flask-WTF."""
         return dict(csrf_token=generate_csrf)
 
+    @app.context_processor
+    def inject_config_values():
+        return dict(hold_minutes=app.config.get('HOLD_MINUTES', 15))
+
     @app.errorhandler(403)
     def handle_403(e):
         """Página amigable para accesos prohibidos.

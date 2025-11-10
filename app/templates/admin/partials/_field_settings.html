@@ -1,0 +1,54 @@
+<div class="bg-white rounded-lg shadow-md p-6">
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuración de Canchas</h2>
+
+  {% if message_text %}
+    <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">{{ message_text }}</div>
+  {% endif %}
+
+  {% if complexes %}
+    {% for c in complexes %}
+      <div class="mb-6">
+        <h3 class="text-md font-semibold text-gray-900 mb-2">{{ c.name }}</h3>
+        {% if c.fields %}
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cancha</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Deporte</th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Visible público</th>
+                  <th class="px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {% for f in c.fields %}
+                <tr>
+                  <td class="px-4 py-2 text-sm">{{ f.name }}</td>
+                  <td class="px-4 py-2 text-sm">{{ f.display_sport }}</td>
+                  <td class="px-4 py-2 text-sm">
+                    <form method="post" action="{{ url_for('admin.field_update_settings') }}" class="inline-flex items-center gap-2">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                      <input type="hidden" name="field_id" value="{{ f.id }}"/>
+                      <label class="inline-flex items-center gap-2">
+                        <input type="checkbox" name="show_public_booking" value="1" class="form-checkbox" {% if f.show_public_booking %}checked{% endif %}>
+                        <span class="text-xs text-gray-600">Mostrar en página pública</span>
+                      </label>
+                      <button type="submit" class="btn-primary ml-2">Guardar</button>
+                    </form>
+                  </td>
+                  <td class="px-4 py-2 text-sm"></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-sm text-gray-500">Sin canchas en este complejo.</p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="text-sm text-gray-500">No tienes complejos asignados.</p>
+  {% endif %}
+</div>
+

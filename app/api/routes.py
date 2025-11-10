@@ -15,11 +15,115 @@ from app.security import (
 from app import db, limiter
 import uuid
 import json
+from urllib.parse import quote
+from itsdangerous import URLSafeTimedSerializer
+from app.models_catalog import professional_services, beauty_center_services, Professional, BeautyCenter
 
 @bp.get('/health')
 def health():
     """Endpoint de salud del API."""
     return jsonify({"status": "ok"}), 200
+
+@bp.route('/hold', methods=['POST'])
+@limiter.limit("10 per minute")
+def hold_timeslot():
+    """Place a timeslot on HOLDING and return a WhatsApp contact link.
+
+    - Transitions AVAILABLE -> HOLDING atomically.
+    - Builds a WhatsApp message with timeslot details and picks an admin phone:
+      * Deportes: uses Complex.contact_phone
+      * Profesionales/Estética: attempts Professional.phone or BeautyCenter.phone linked to the Service
+    """
+    timeslot_id = request.form.get('timeslot_id', type=int)
+    if not timeslot_id:
+        return jsonify({'success': False, 'message': 'ID de turno requerido.'}), 400
+
+    ts = Timeslot.query.get_or_404(timeslot_id)
+    if ts.status != TimeslotStatus.AVAILABLE:
+        return jsonify({'success': False, 'message': 'El turno no está disponible.'}), 400
+
+    # Build message text
+    def _fmt_location() -> str:
+        if ts.field:
+            parts = [ts.field.complex.name or '', ts.field.name or '']
+            if ts.field.sport:
+                parts.append(ts.field.sport)
+            return ' - '.join([p for p in parts if p])
+        if ts.service:
+            return ts.service.name or ''
+        return ''
+
+    def _fmt_price() -> str:
+        return f"${ts.price} {ts.currency}" if ts.price else "-"
+
+    # Deep link to admin panel for this timeslot
+    base = current_app.config.get('APP_BASE_URL', '').rstrip('/')
+    admin_url = None
+    try:
+        if base:
+            s = URLSafeTimedSerializer(current_app.secret_key, salt='admin-focus')
+            token = s.dumps({'ts': ts.id})
+            admin_url = f"{base}/admin/panel?t={token}#timeslot-{ts.id}"
+    except Exception:
+        admin_url = None
+
+    # Human-readable message (encode after composing)
+    msg_text = (
+        "Solicitud de reserva\n"
+        f"Fecha/Hora: {ts.start.strftime('%d/%m/%Y %H:%M')}\n"
+        f"Lugar/Servicio: {_fmt_location()}\n"
+        f"Precio: {_fmt_price()}\n"
+        f"ID: {ts.id}"
+    )
+    if admin_url:
+        msg_text += f"\nGestionar: {admin_url}"
+
+    # Pick phone number
+    phone = None
+    if ts.field and ts.field.complex and ts.field.complex.contact_phone:
+        phone = ts.field.complex.contact_phone
+    elif ts.service:
+        # Try professional first
+        prof = (
+            db.session.query(Professional)
+            .join(professional_services, professional_services.c.professional_id == Professional.id)
+            .filter(professional_services.c.service_id == ts.service_id)
+            .order_by(Professional.id)
+            .first()
+        )
+        if prof and getattr(prof, 'phone', None):
+            phone = prof.phone
+        else:
+            bc = (
+                db.session.query(BeautyCenter)
+                .join(beauty_center_services, beauty_center_services.c.beauty_center_id == BeautyCenter.id)
+                .filter(beauty_center_services.c.service_id == ts.service_id)
+                .order_by(BeautyCenter.id)
+                .first()
+            )
+            if bc and getattr(bc, 'phone', None):
+                phone = bc.phone
+
+    # Clean phone to digits and plus
+    def _clean_phone(p):
+        if not p:
+            return ''
+        return ''.join(ch for ch in str(p) if ch.isdigit() or ch == '+')
+
+    phone_clean = _clean_phone(phone)
+    wa_url = f"https://wa.me/{phone_clean}?text={quote(msg_text)}" if phone_clean else None
+
+    # Transition to HOLDING
+    ts.status = TimeslotStatus.HOLDING
+    db.session.commit()
+    # Set Redis TTL key for automatic expiration of HOLD
+    try:
+        ttl_sec = int(current_app.config.get('HOLD_MINUTES', 15)) * 60
+        current_app.redis.setex(f"hold:timeslot:{ts.id}", ttl_sec, '1')
+    except Exception as _e:
+        current_app.logger.warning(f"Could not set HOLD TTL for timeslot {ts.id}: {_e}")
+
+    return jsonify({'success': True, 'message': 'Turno en reservando.', 'whatsapp_url': wa_url, 'admin_url': admin_url})
 
 @bp.route('/lead', methods=['POST'])
 @limiter.limit("3 per minute")

@@ -75,6 +75,7 @@ class Complex(db.Model):
     address = db.Column(db.Text)
     contact_email = db.Column(db.String(120))
     contact_phone = db.Column(db.String(50))
+    show_public_booking = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     
@@ -82,9 +83,25 @@ class Complex(db.Model):
     users = db.relationship('AppUser', secondary='user_complexes', back_populates='complexes')
     categories = db.relationship('Category', secondary='complex_categories', back_populates='complexes')
     fields = db.relationship('Field', back_populates='complex', cascade='all, delete-orphan')
+    photos = db.relationship('ComplexPhoto', back_populates='complex', cascade='all, delete-orphan', order_by='ComplexPhoto.rank')
     
     def __repr__(self):
         return f'<Complex {self.name}>'
+
+
+class ComplexPhoto(db.Model):
+    __tablename__ = 'complex_photos'
+
+    id = db.Column(db.Integer, primary_key=True)
+    complex_id = db.Column(db.Integer, db.ForeignKey('complexes.id'), nullable=False, index=True)
+    path = db.Column(db.String(300), nullable=False)  # relative to /static
+    rank = db.Column(db.Integer, nullable=False, default=0)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    complex = db.relationship('Complex', back_populates='photos')
+
+    def __repr__(self):
+        return f'<ComplexPhoto {self.id} {self.path}>'
 
 class UserComplex(db.Model):
     __tablename__ = 'user_complexes'
@@ -164,6 +181,7 @@ class Field(db.Model):
     team_size = db.Column(db.Integer, nullable=True)
     surface = db.Column(db.String(100))
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+    show_public_booking = db.Column(db.Boolean, nullable=False, default=True)
     
     # Relationships
     complex = db.relationship('Complex', back_populates='fields')
@@ -185,10 +203,12 @@ class Field(db.Model):
 
 class Timeslot(db.Model):
     __tablename__ = 'timeslots'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     field_id = db.Column(db.Integer, db.ForeignKey('fields.id'), nullable=True)
     service_id = db.Column(db.Integer, db.ForeignKey('services.id'), nullable=True)
+    beauty_center_id = db.Column(db.Integer, db.ForeignKey('beauty_centers.id'), nullable=True)
+    professional_id = db.Column(db.Integer, db.ForeignKey('professionals.id'), nullable=True)
     start = db.Column(db.DateTime(timezone=True), nullable=False)
     end = db.Column(db.DateTime(timezone=True), nullable=False)
     price = db.Column(db.Numeric(10, 2))
@@ -200,6 +220,7 @@ class Timeslot(db.Model):
     # Relationships
     field = db.relationship('Field', back_populates='timeslots')
     service = db.relationship('Service', back_populates='timeslots')
+    professional = db.relationship('Professional')
     subscriptions = db.relationship('Subscription', back_populates='timeslot')
     
     # Indexes
@@ -207,6 +228,8 @@ class Timeslot(db.Model):
         Index('ix_timeslot_start_status', 'start', 'status'),
         Index('ix_timeslot_field_id', 'field_id'),
         Index('ix_timeslot_service_id', 'service_id'),
+        Index('ix_timeslot_beauty_center_id', 'beauty_center_id'),
+        Index('ix_timeslot_professional_id', 'professional_id'),
     )
     
     def __repr__(self):

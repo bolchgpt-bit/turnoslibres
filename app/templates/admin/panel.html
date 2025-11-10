@@ -124,6 +124,16 @@
     <p class="text-gray-500">Cargando mis servicios (Estética)...</p>
   </div>
 </div>
+
+<div id="beauty-settings"
+     class="mb-6"
+     hx-get="{{ url_for('admin.beauty_settings') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando configuración de centros...</p>
+  </div>
+</div>
 {% endif %}
 
 {% if current_user.category and current_user.category.slug == 'profesionales' %}
@@ -134,6 +144,26 @@
      hx-swap="outerHTML">
   <div class="p-6 bg-white rounded-lg shadow-md">
     <p class="text-gray-500">Cargando formulario para crear turno por servicio...</p>
+  </div>
+</div>
+
+<div id="pro-settings"
+     class="mb-6"
+     hx-get="{{ url_for('admin.professional_settings') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando configuración de profesionales...</p>
+  </div>
+</div>
+
+<div id="pro-bulk-form"
+     class="mb-6"
+     hx-get="{{ url_for('admin.pro_timeslots_bulk_form') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando generación masiva (profesionales)...</p>
   </div>
 </div>
 {% endif %}
@@ -147,6 +177,26 @@
     <p class="text-gray-500">Cargando formulario para crear turno...</p>
   </div>
   </div>
+
+<div id="complex-settings"
+     class="mb-6"
+     hx-get="{{ url_for('admin.complex_settings') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando configuración de complejos...</p>
+  </div>
+</div>
+
+<div id="field-settings"
+     class="mb-6"
+     hx-get="{{ url_for('admin.field_settings') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML">
+  <div class="p-6 bg-white rounded-lg shadow-md">
+    <p class="text-gray-500">Cargando configuración de canchas...</p>
+  </div>
+</div>
 {% endif %}
 
 <!-- Mis Servicios (Profesionales) -->
@@ -162,10 +212,15 @@
 {% endif %}
 
 <!-- Turnos Table -->
-<div id="turnos-table" class="bg-white rounded-lg shadow-md">
-    <div class="p-6">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos</h2>
-        <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
-    </div>
+<div id="turnos-table"
+     class="bg-white rounded-lg shadow-md"
+     hx-get="{{ url_for('admin.turnos_table') }}"
+     hx-trigger="load"
+     hx-swap="outerHTML"
+     hx-vals='{"t": "{{ request.args.get("t", "") }}"}'>
+  <div class="p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos</h2>
+      <p class="text-gray-600">Selecciona filtros para ver los turnos disponibles.</p>
+  </div>
 </div>
 {% endblock %}
