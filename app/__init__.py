@@ -12,7 +12,7 @@ from app.security import security_headers
 from flask_wtf.csrf import generate_csrf
 from datetime import datetime, timezone, timedelta
 
-db = SQLAlchemy()
+db = SQLAlchemy(session_options={"expire_on_commit": False})
 migrate = Migrate()
 login_manager = LoginManager()
 csrf = CSRFProtect()

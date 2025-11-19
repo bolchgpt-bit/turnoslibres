@@ -50,7 +50,7 @@ def turnos_table():
     # Category filter
     if category and validate_category(category):
         if category == 'deportes':
-            query = query.join(Field).join(Complex).join(Complex.categories).filter(Category.slug == category)
+            query = query.join(Field).join(Complex)
             # Soft-hide fields with public booking disabled
             query = query.filter(Field.show_public_booking.is_(True))
         else:
@@ -190,7 +190,7 @@ def turnos_table_grouped():
     # Apply same filters as turnos_table
     if category and validate_category(category):
         if category == 'deportes':
-            query = query.join(Field).join(Complex).join(Complex.categories).filter(Category.slug == category)
+            query = query.join(Field).join(Complex)
             query = query.filter(Field.show_public_booking.is_(True))
         else:
             query = query.join(Service).join(Category).filter(Category.slug == category)

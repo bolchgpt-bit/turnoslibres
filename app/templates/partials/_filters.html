@@ -1,4 +1,18 @@
+{% set days = upcoming_days() %}
+{% set selected_date = request.args.get('date', '') %}
+{% if not selected_date and days %}
+  {% set selected_date = days[0].strftime('%Y-%m-%d') %}
+{% endif %}
 {% set selected_status = request.args.get('status', 'available') %}
+{% set weekday_labels = {
+  'Mon': 'LUN',
+  'Tue': 'MAR',
+  'Wed': 'MIE',
+  'Thu': 'JUE',
+  'Fri': 'VIE',
+  'Sat': 'SAB',
+  'Sun': 'DOM'
+} %}
 <form id="filters-form">
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
     <input type="hidden" name="category" value="{{ request.args.get('category', category.slug if category else '') }}">
@@ -7,7 +21,7 @@
       <input type="date"
              name="date"
              class="form-input"
-             value="{{ request.args.get('date', '') }}"
+             value="{{ selected_date }}"
              hx-get="{{ url_for('ui.turnos_table') }}"
              hx-target="#turnos-container"
              hx-include="#filters-form input[name], #filters-form select[name]"
@@ -51,7 +65,7 @@
       <span class="text-xs text-gray-500">Elegi rapido entre hoy y la proxima semana</span>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2" data-quick-day-grid>
-      {% for day in upcoming_days() %}
+      {% for day in days %}
         {% set day_str = day.strftime('%Y-%m-%d') %}
         <button type="button"
                 class="quick-day block w-full rounded-lg border border-gray-200 bg-white text-gray-900 p-3 text-left transition hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
@@ -61,7 +75,7 @@
                 hx-include="#filters-form input[name], #filters-form select[name]"
                 hx-vals='{"date": "{{ day_str }}"}'
                 hx-push-url="true">
-          <span class="text-xs uppercase text-gray-500">{{ day.strftime('%a') }}</span>
+          <span class="quick-day-label text-xs uppercase text-gray-500">{{ weekday_labels.get(day.strftime('%a'), day.strftime('%a')) }}</span>
           <div class="text-lg font-semibold">{{ day.strftime('%d/%m') }}</div>
         </button>
       {% endfor %}
@@ -94,14 +108,22 @@
   if (!grid) { return; }
 
   var buttons = grid.querySelectorAll('[data-date-option]');
-  var activeClasses = ['bg-blue-600', 'text-white', 'border-blue-600', 'shadow-sm'];
-  var inactiveClasses = ['bg-white', 'text-gray-900', 'border-gray-200'];
+  var buttonActiveClasses = ['bg-blue-600', 'text-white', 'border-blue-600', 'shadow-sm'];
+  var buttonInactiveClasses = ['bg-white', 'text-gray-900', 'border-gray-200'];
+
+  var labelActiveClasses = ['text-white'];
+  var labelInactiveClasses = ['text-gray-500'];
 
   function setActive(value) {
     buttons.forEach(function (btn) {
       var isActive = value && btn.getAttribute('data-date-option') === value;
-      activeClasses.forEach(function (cls) { btn.classList.toggle(cls, isActive); });
-      inactiveClasses.forEach(function (cls) { btn.classList.toggle(cls, !isActive); });
+      buttonActiveClasses.forEach(function (cls) { btn.classList.toggle(cls, isActive); });
+      buttonInactiveClasses.forEach(function (cls) { btn.classList.toggle(cls, !isActive); });
+      var label = btn.querySelector('.quick-day-label');
+      if (label) {
+        labelActiveClasses.forEach(function (cls) { label.classList.toggle(cls, isActive); });
+        labelInactiveClasses.forEach(function (cls) { label.classList.toggle(cls, !isActive); });
+      }
     });
   }
 

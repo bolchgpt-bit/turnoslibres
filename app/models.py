@@ -1,21 +1,33 @@
 from app import db
+from app.models_catalog import Professional, BeautyCenter
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timezone
-from sqlalchemy import Index
+from sqlalchemy import Index, event
+from unicodedata import normalize
+import re
 import uuid
 from enum import Enum
 
-class TimeslotStatus(Enum):
+class TimeslotStatus(str, Enum):
     AVAILABLE = 'available'
     HOLDING = 'holding'
     RESERVED = 'reserved'
     BLOCKED = 'blocked'
 
-class SubscriptionStatus(Enum):
+class SubscriptionStatus(str, Enum):
     PENDING = 'pending'
     ACTIVE = 'active'
     UNSUBSCRIBED = 'unsubscribed'
+
+
+def slugify(value: str) -> str:
+    """Convierte un texto en slug ascii, minúsculas y con guiones."""
+    if not value:
+        return ''
+    value = normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    value = re.sub(r'[^a-zA-Z0-9]+', '-', value).strip('-').lower()
+    return value
 
 class AppUser(UserMixin, db.Model):
     __tablename__ = 'app_users'
@@ -74,7 +86,7 @@ class Complex(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     slug = db.Column(db.String(200), unique=True, nullable=False, index=True)
-    city = db.Column(db.String(100), nullable=False)
+    city = db.Column(db.String(100), nullable=False, default='')
     address = db.Column(db.Text)
     contact_email = db.Column(db.String(120))
     contact_phone = db.Column(db.String(50))
@@ -92,6 +104,13 @@ class Complex(db.Model):
     
     def __repr__(self):
         return f'<Complex {self.name}>'
+
+
+@event.listens_for(Complex, 'before_insert')
+def complex_set_default_slug(mapper, connection, target: 'Complex') -> None:
+    """Genera el slug a partir del nombre si no se definió explícitamente."""
+    if not getattr(target, 'slug', None) and getattr(target, 'name', None):
+        target.slug = slugify(target.name)
 
 
 class ComplexPhoto(db.Model):
@@ -144,6 +163,15 @@ class Category(db.Model):
     
     def __repr__(self):
         return f'<Category {self.title}>'
+
+    @property
+    def name(self) -> str:
+        """Alias requerido por vistas/tests que esperan category.name."""
+        return self.title
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self.title = value
 
 class ComplexCategory(db.Model):
     __tablename__ = 'complex_categories'
