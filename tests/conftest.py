@@ -64,7 +64,13 @@ def sample_data(app):
     with app.app_context():
         cat = Category(slug='deportes', title='Deportes')
         db.session.add(cat); db.session.flush()
-        cpx = Complex(name='Complejo Test', slug='complejo-test', city='X', show_public_booking=True)
+        cpx = Complex(
+            name='Complejo Test',
+            slug='complejo-test',
+            city='X',
+            show_public_booking=True,
+            contact_phone='+54 9 11 1234-5678'
+        )
         db.session.add(cpx); db.session.flush()
         fld = Field(complex_id=cpx.id, name='Cancha 1', sport='futbol', is_active=True, show_public_booking=True)
         db.session.add(fld); db.session.flush()

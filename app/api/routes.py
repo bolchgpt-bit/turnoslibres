@@ -104,11 +104,11 @@ def hold_timeslot():
             if bc and getattr(bc, 'phone', None):
                 phone = bc.phone
 
-    # Clean phone to digits and plus
-    def _clean_phone(p):
+    # Clean phone for wa.me deep link
+    def _clean_phone(p: str) -> str:
         if not p:
             return ''
-        return ''.join(ch for ch in str(p) if ch.isdigit() or ch == '+')
+        return ''.join(ch for ch in str(p) if ch.isdigit())
 
     phone_clean = _clean_phone(phone)
     wa_url = f"https://wa.me/{phone_clean}?text={quote(msg_text)}" if phone_clean else None

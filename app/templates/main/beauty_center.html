@@ -144,7 +144,7 @@
   <div class="hidden"
        hx-get="{{ url_for('ui.turnos_table') }}"
        hx-target="#turnos-container"
-       hx-include="#filters-form [name='date'], #filters-form [name='status'], #filters-form [name='beauty_slug'], #filters-form [name='sport_service'], #filters-form [name='category']"
+       hx-include="#filters-form input[name], #filters-form select[name]"
        hx-trigger="load">
   </div>
 </div>

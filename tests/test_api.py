@@ -91,3 +91,16 @@ def test_lead_generation(client):
     assert response.status_code == 200
     data = json.loads(response.data)
     assert data['success'] is True
+
+
+def test_hold_generates_clean_whatsapp_link(client, sample_data):
+    """Hold endpoint should return a wa.me link with digits only."""
+    timeslot = sample_data['timeslot']
+
+    response = client.post('/api/hold', data={'timeslot_id': timeslot.id})
+
+    assert response.status_code == 200
+    payload = json.loads(response.data)
+    assert payload['success'] is True
+    assert payload['whatsapp_url'].startswith('https://wa.me/5491112345678')
+    assert 'Solicitud%20de%20reserva' in payload['whatsapp_url']

@@ -14,7 +14,7 @@ def turnos_table():
     # Get and validate parameters
     date_str = request.args.get('date', '')
     category = request.args.get('category', '')
-    status = request.args.get('status', '')
+    status = (request.args.get('status', '') or '').strip()
     complex_slug = request.args.get('complex_slug', '')
     beauty_slug = request.args.get('beauty_slug', '')
     sport_service = request.args.get('sport_service', '')
@@ -56,9 +56,16 @@ def turnos_table():
         else:
             query = query.join(Service).join(Category).filter(Category.slug == category)
     
-    # Status filter
-    if status and validate_status(status):
-        query = query.filter(Timeslot.status == TimeslotStatus(status))
+    # Status filter (default to available)
+    status_filter = None
+    if status == 'all':
+        status_filter = None
+    elif status and validate_status(status):
+        status_filter = status
+    else:
+        status_filter = 'available'
+    if status_filter:
+        query = query.filter(Timeslot.status == TimeslotStatus(status_filter))
     
     # Complex / Center filter
     if complex_slug:
@@ -139,7 +146,7 @@ def turnos_table_grouped():
     # Get and validate parameters
     date_str = request.args.get('date', '')
     category = request.args.get('category', '')
-    status = request.args.get('status', '')
+    status = (request.args.get('status', '') or '').strip()
     complex_slug = request.args.get('complex_slug', '')
     beauty_slug = request.args.get('beauty_slug', '')
     sport_service = request.args.get('sport_service', '')
@@ -188,8 +195,15 @@ def turnos_table_grouped():
         else:
             query = query.join(Service).join(Category).filter(Category.slug == category)
     
-    if status and validate_status(status):
-        query = query.filter(Timeslot.status == TimeslotStatus(status))
+    status_filter = None
+    if status == 'all':
+        status_filter = None
+    elif status and validate_status(status):
+        status_filter = status
+    else:
+        status_filter = 'available'
+    if status_filter:
+        query = query.filter(Timeslot.status == TimeslotStatus(status_filter))
     
     if complex_slug:
         complex_slug = clean_text(complex_slug, 200)

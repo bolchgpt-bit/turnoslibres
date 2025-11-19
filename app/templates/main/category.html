@@ -32,11 +32,13 @@
 <div id="turnos-container" class="bg-white rounded-lg shadow-md">
     <div class="p-6">
         <h2 class="text-xl font-semibold text-gray-900 mb-4">Turnos Disponibles</h2>
-        <p class="text-gray-600">Selecciona filtros y una vista para ver los turnos disponibles.</p>
+        <p class="text-gray-600">Listamos los turnos libres ordenados por fecha. Ajusta los filtros para afinar la busqueda.</p>
     </div>
 </div>
-
-<!-- Hidden inputs for HTMX -->
-<input type="hidden" name="category" value="{{ category.slug }}">
+<div class="hidden"
+     hx-get="{{ url_for('ui.turnos_table') }}"
+     hx-target="#turnos-container"
+     hx-include="#filters-form input[name], #filters-form select[name]"
+     hx-trigger="load">
+</div>
 {% endblock %}
-

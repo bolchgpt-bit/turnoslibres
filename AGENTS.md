@@ -162,6 +162,5 @@ El proyecto se desarrolla en **Windows 10/11** con:
 
 ### modo de responder de codex
 
-para evitar que se rompa con codigo 3000 rompiedo git y a veces wsl el tipo de respuesta tiene que ser cual archivos modificar y/o crear (con link) y en que linea de codigo , la modificacion la haré yo.
-si  se puede ejecutar comandos para leer el codigo
+
 

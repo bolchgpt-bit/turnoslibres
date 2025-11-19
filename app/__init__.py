@@ -10,6 +10,7 @@ from rq import Queue
 import os
 from app.security import security_headers
 from flask_wtf.csrf import generate_csrf
+from datetime import datetime, timezone, timedelta
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -82,6 +83,14 @@ def create_app(config_name=None):
     @app.context_processor
     def inject_config_values():
         return dict(hold_minutes=app.config.get('HOLD_MINUTES', 15))
+
+    @app.context_processor
+    def inject_upcoming_days():
+        """Expose helper to iterate upcoming days for quick filters."""
+        def upcoming_days(count: int = 7):
+            start = datetime.now(timezone.utc).date()
+            return [start + timedelta(days=i) for i in range(count)]
+        return dict(upcoming_days=upcoming_days)
 
     @app.errorhandler(403)
     def handle_403(e):
