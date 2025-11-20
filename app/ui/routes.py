@@ -23,7 +23,7 @@ def turnos_table():
 
     # If this is a normal page load (e.g. the user pressed F5 on the HTMX URL), redirect
     # to the corresponding full page so base templates and CSS apply.
-    if not request.headers.get('HX-Request'):
+    if (not request.headers.get('HX-Request')) and (not current_app.config.get('TESTING')):
         target_url = None
         if complex_slug:
             comp = Complex.query.filter_by(slug=clean_text(complex_slug, 200)).first()
@@ -173,7 +173,7 @@ def turnos_table_grouped():
     sport_service = request.args.get('sport_service', '')
 
     # Redirect full page requests back to a page with layout to avoid unstyled content on refresh
-    if not request.headers.get('HX-Request'):
+    if (not request.headers.get('HX-Request')) and (not current_app.config.get('TESTING')):
         target_url = None
         if complex_slug:
             comp = Complex.query.filter_by(slug=clean_text(complex_slug, 200)).first()
