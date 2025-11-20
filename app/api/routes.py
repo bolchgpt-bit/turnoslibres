@@ -104,14 +104,15 @@ def hold_timeslot():
             if bc and getattr(bc, 'phone', None):
                 phone = bc.phone
 
-    # Clean phone for wa.me deep link
+    # Clean phone for wa.me deep link (fallback to open chat selector if missing)
     def _clean_phone(p: str) -> str:
         if not p:
             return ''
         return ''.join(ch for ch in str(p) if ch.isdigit())
 
     phone_clean = _clean_phone(phone)
-    wa_url = f"https://wa.me/{phone_clean}?text={quote(msg_text)}" if phone_clean else None
+    wa_base = f"https://wa.me/{phone_clean}" if phone_clean else "https://wa.me/"
+    wa_url = f"{wa_base}?text={quote(msg_text)}"
 
     # Transition to HOLDING
     ts.status = TimeslotStatus.HOLDING
@@ -123,7 +124,11 @@ def hold_timeslot():
     except Exception as _e:
         current_app.logger.warning(f"Could not set HOLD TTL for timeslot {ts.id}: {_e}")
 
-    return jsonify({'success': True, 'message': 'Turno en reservando.', 'whatsapp_url': wa_url, 'admin_url': admin_url})
+    resp = jsonify({'success': True, 'message': 'Turno en reservando.', 'whatsapp_url': wa_url, 'admin_url': admin_url})
+    # HTMX-friendly redirect so the client always opens WhatsApp even if JS hooks fail
+    if wa_url:
+        resp.headers['HX-Redirect'] = wa_url
+    return resp
 
 @bp.route('/lead', methods=['POST'])
 @limiter.limit("3 per minute")

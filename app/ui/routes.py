@@ -1,4 +1,4 @@
-from flask import render_template, request, jsonify, current_app, abort
+from flask import render_template, request, jsonify, current_app, abort, redirect, url_for
 from app.ui import bp
 from app.models import Timeslot, Field, Service, Complex, Category, Subscription, TimeslotStatus, SubscriptionStatus
 from app.models_catalog import BeautyCenter, beauty_center_services
@@ -20,6 +20,27 @@ def turnos_table():
     sport_service = request.args.get('sport_service', '')
     page = int(request.args.get('page', 1))
     limit = min(int(request.args.get('limit', 20)), 50)  # Max 50 items per page
+
+    # If this is a normal page load (e.g. the user pressed F5 on the HTMX URL), redirect
+    # to the corresponding full page so base templates and CSS apply.
+    if not request.headers.get('HX-Request'):
+        target_url = None
+        if complex_slug:
+            comp = Complex.query.filter_by(slug=clean_text(complex_slug, 200)).first()
+            if comp:
+                target_url = url_for('main.complex_detail', slug=comp.slug)
+        if not target_url and beauty_slug:
+            bc = BeautyCenter.query.filter_by(slug=clean_text(beauty_slug, 200)).first()
+            if bc:
+                target_url = url_for('main.beauty_center_detail', slug=bc.slug)
+        if not target_url and category and validate_category(category):
+            target_url = url_for('main.category_page', category=category)
+        if not target_url:
+            target_url = url_for('main.index')
+        qs = request.query_string.decode('utf-8')
+        if qs:
+            target_url = f"{target_url}?{qs}"
+        return redirect(target_url)
     
     # Enforce complex public visibility if filtering by complex
     if complex_slug:
@@ -150,7 +171,27 @@ def turnos_table_grouped():
     complex_slug = request.args.get('complex_slug', '')
     beauty_slug = request.args.get('beauty_slug', '')
     sport_service = request.args.get('sport_service', '')
-    
+
+    # Redirect full page requests back to a page with layout to avoid unstyled content on refresh
+    if not request.headers.get('HX-Request'):
+        target_url = None
+        if complex_slug:
+            comp = Complex.query.filter_by(slug=clean_text(complex_slug, 200)).first()
+            if comp:
+                target_url = url_for('main.complex_detail', slug=comp.slug)
+        if not target_url and beauty_slug:
+            bc = BeautyCenter.query.filter_by(slug=clean_text(beauty_slug, 200)).first()
+            if bc:
+                target_url = url_for('main.beauty_center_detail', slug=bc.slug)
+        if not target_url and category and validate_category(category):
+            target_url = url_for('main.category_page', category=category)
+        if not target_url:
+            target_url = url_for('main.index')
+        qs = request.query_string.decode('utf-8')
+        if qs:
+            target_url = f"{target_url}?{qs}"
+        return redirect(target_url)
+
     # Enforce complex public visibility if filtering by complex
     if complex_slug:
         cs = clean_text(complex_slug, 200)
