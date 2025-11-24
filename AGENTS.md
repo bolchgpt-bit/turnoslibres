@@ -162,5 +162,5 @@ El proyecto se desarrolla en **Windows 10/11** con:
 
 ### modo de responder de codex
 
-
+ simepre utf-8 para todo el sitio
 

@@ -1,0 +1,141 @@
+<div id="reservation-modal-{{ timeslot.id if timeslot else 'na' }}"
+  class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-50 px-4"
+  onclick="if(event.target === this){ this.remove(); }">
+  <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <h3 class="text-lg font-semibold text-gray-900">Confirmar reserva</h3>
+      <button type="button"
+        class="text-gray-500 hover:text-gray-700"
+        aria-label="Cerrar modal"
+        onclick="this.closest('[id^=reservation-modal]').remove()">
+        X
+      </button>
+    </div>
+
+    <div class="p-6 space-y-4" id="reservation-modal-body-{{ timeslot.id if timeslot else 'na' }}">
+      {% if timeslot and not message %}
+        <p class="text-sm text-gray-700">
+          Vas a reservar este turno. Al confirmar iniciaremos el contacto con el administrador.
+        </p>
+
+        <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 space-y-2">
+          <div class="text-sm text-gray-800">
+            <span class="font-semibold">Fecha y hora:</span>
+            {{ timeslot.start.strftime('%d/%m/%Y %H:%M') }}
+          </div>
+          <div class="text-sm text-gray-800">
+            <span class="font-semibold">Lugar/servicio:</span>
+            {% if timeslot.field %}
+              {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}{% if timeslot.field.sport %} ({{ timeslot.field.sport }}){% endif %}
+            {% elif timeslot.service %}
+              {{ timeslot.service.name }}
+            {% else %}
+              -
+            {% endif %}
+          </div>
+          <div class="text-sm text-gray-800">
+            <span class="font-semibold">Precio:</span>
+            {% if timeslot.price %}${{ timeslot.price }} {{ timeslot.currency }}{% else %}-{% endif %}
+          </div>
+          <p class="text-xs text-gray-600">
+            El turno quedará en estado "Reservando" mientras contactamos al administrador.
+          </p>
+        </div>
+
+        <div class="space-y-3">
+          <button class="btn-primary w-full"
+            hx-post="{{ url_for('api.hold_timeslot') }}"
+            hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'
+            hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
+            hx-indicator="#hold-modal-ind-{{ timeslot.id }}"
+            hx-swap="none"
+            hx-on="htmx:afterRequest: window.handleHoldModal && window.handleHoldModal(event, {{ timeslot.id }}, {{ hold_minutes|int }})">
+            Confirmar y contactar
+          </button>
+          <div id="hold-modal-ind-{{ timeslot.id }}" class="htmx-indicator text-sm text-gray-500 text-center">
+            Reservando...
+          </div>
+          <button class="btn-secondary w-full" type="button" onclick="this.closest('[id^=reservation-modal]').remove()">
+            Cancelar
+          </button>
+        </div>
+      {% else %}
+        <div class="text-sm text-gray-700">
+          {{ message or 'El turno no está disponible en este momento.' }}
+        </div>
+        <div class="flex justify-end">
+          <button class="btn-secondary" type="button" onclick="this.closest('[id^=reservation-modal]').remove()">
+            Cerrar
+          </button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+  if (!window.handleHoldModal) {
+    window.handleHoldModal = function (event, timeslotId, holdMinutes) {
+      var modal = document.getElementById('reservation-modal-' + timeslotId);
+      var body = document.getElementById('reservation-modal-body-' + timeslotId);
+      var xhr = event.detail && event.detail.xhr;
+      var data = null;
+
+      if (xhr) {
+        try {
+          data = JSON.parse(xhr.responseText || '{}');
+        } catch (e) {
+          data = null;
+        }
+      }
+
+      if (!data) {
+        return;
+      }
+
+      if (!data.success) {
+        if (body) {
+          var error = document.createElement('p');
+          error.className = 'text-sm text-red-600';
+          error.textContent = data.message || 'No pudimos reservar. Intenta nuevamente.';
+          body.appendChild(error);
+        }
+        return;
+      }
+
+      var statusCell = document.getElementById('status-' + timeslotId);
+      if (statusCell) {
+        statusCell.innerHTML = "<span class='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800'>Reservando</span> <span id='hold-ct-" + timeslotId + "' class='text-xs text-gray-500'></span>";
+        var secs = (parseInt(holdMinutes, 10) || 15) * 60;
+        var counter = document.getElementById('hold-ct-' + timeslotId);
+        if (counter) {
+          var iv = setInterval(function () {
+            secs -= 1;
+            if (secs <= 0) {
+              clearInterval(iv);
+              counter.textContent = '';
+            } else {
+              var minutes = Math.floor(secs / 60);
+              var seconds = ('0' + (secs % 60)).slice(-2);
+              counter.textContent = ' (' + minutes + ':' + seconds + ')';
+            }
+          }, 1000);
+        }
+      }
+
+      if (data.whatsapp_url) {
+        window.location.href = data.whatsapp_url;
+      }
+
+      if (body) {
+        body.innerHTML = "<div class='text-center space-y-2'><p class='text-sm text-gray-700'>Reservando... Estamos abriendo WhatsApp para contactar al administrador.</p><p class='text-xs text-gray-500'>Si no se abre, revisa el bloqueador de ventanas emergentes.</p></div>";
+      }
+
+      if (modal) {
+        setTimeout(function () {
+          modal.remove();
+        }, 800);
+      }
+    };
+  }
+</script>

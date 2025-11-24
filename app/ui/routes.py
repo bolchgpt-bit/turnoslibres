@@ -161,6 +161,26 @@ def turnos_table():
                          has_prev=has_prev,
                          total=total)
 
+
+@bp.get('/timeslots/<int:timeslot_id>/modal')
+def reservation_modal(timeslot_id: int):
+    """HTMX partial: confirmation modal before holding a timeslot."""
+    timeslot = Timeslot.query.get_or_404(timeslot_id)
+    if timeslot.status != TimeslotStatus.AVAILABLE:
+        return render_template(
+            'partials/_reservation_modal.html',
+            timeslot=None,
+            message='El turno ya no está disponible.'
+        )
+    if timeslot.field and not getattr(timeslot.field, 'show_public_booking', True):
+        abort(403)
+
+    return render_template(
+        'partials/_reservation_modal.html',
+        timeslot=timeslot,
+        message=None
+    )
+
 @bp.route('/turnos_table_grouped')
 def turnos_table_grouped():
     """HTMX partial for week view turnos table grouped by day"""
