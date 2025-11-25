@@ -36,12 +36,13 @@
     </td>
     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
       {% if timeslot.status.value == 'available' %}
-        <button class="text-blue-600 hover:text-blue-900"
-                hx-get="{{ url_for('ui.reservation_modal', timeslot_id=timeslot.id) }}"
-                hx-target="body"
-                hx-swap="beforeend">
+        <a class="text-blue-600 hover:text-blue-900"
+           href="{{ url_for('ui.reservation_modal', timeslot_id=timeslot.id) }}"
+           hx-get="{{ url_for('ui.reservation_modal', timeslot_id=timeslot.id) }}"
+           hx-target="body"
+           hx-swap="beforeend">
           Reservar
-        </button>
+        </a>
       {% else %}
         <div class="flex items-center space-x-2">
           <input type="email" placeholder="tu@email.com" class="text-xs px-2 py-1 border rounded" id="email-{{ timeslot.id }}">
@@ -79,12 +80,13 @@
     </td>
     <td class="px-4 py-2 text-sm">
       {% if timeslot.status.value == 'available' %}
-        <button class="text-blue-600 hover:text-blue-900 text-xs"
-                hx-get="{{ url_for('ui.reservation_modal', timeslot_id=timeslot.id) }}"
-                hx-target="body"
-                hx-swap="beforeend">
+        <a class="text-blue-600 hover:text-blue-900 text-xs"
+           href="{{ url_for('ui.reservation_modal', timeslot_id=timeslot.id) }}"
+           hx-get="{{ url_for('ui.reservation_modal', timeslot_id=timeslot.id) }}"
+           hx-target="body"
+           hx-swap="beforeend">
           Reservar
-        </button>
+        </a>
       {% else %}
         <div class="flex items-center space-x-1">
           <input type="email" placeholder="email" class="text-xs px-1 py-1 border rounded w-20" id="email-week-{{ timeslot.id }}">
