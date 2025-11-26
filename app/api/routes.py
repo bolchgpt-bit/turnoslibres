@@ -138,8 +138,6 @@ def hold_timeslot():
             "admin_url": admin_url,
         }
     )
-    if wa_url:
-        resp.headers["HX-Redirect"] = wa_url
     return resp
 
 

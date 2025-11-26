@@ -10,6 +10,42 @@
   {%- endif -%}
 {% endmacro %}
 
+{% macro turno_location(timeslot) %}
+  {% set field = timeslot.field %}
+  {% set service = timeslot.service %}
+  {% set center = timeslot.beauty_center %}
+  {% set professional = timeslot.professional %}
+  {% if field and field.complex %}
+    <a class="text-blue-600 hover:text-blue-900 font-semibold"
+       href="{{ url_for('main.complex_detail', slug=field.complex.slug) }}">
+      {{ field.complex.name }}
+    </a>
+    <span class="text-gray-700"> - {{ field.name }}</span>
+    {% if field.sport %}<br><span class="text-gray-500">{{ field.sport }}</span>{% endif %}
+  {% elif center %}
+    <a class="text-blue-600 hover:text-blue-900 font-semibold"
+       href="{{ url_for('main.beauty_center_detail', slug=center.slug) }}">
+      {{ center.name }}
+    </a>
+    {% if service %}
+      <br><span class="text-gray-500">{{ service.name }}{% if service.category %} - {{ service.category.title }}{% endif %}</span>
+    {% endif %}
+  {% elif professional %}
+    <a class="text-blue-600 hover:text-blue-900 font-semibold"
+       href="{{ url_for('main.professional_detail', slug=professional.slug) }}">
+      {{ professional.name }}
+    </a>
+    {% if service %}
+      <br><span class="text-gray-500">{{ service.name }}{% if service.category %} - {{ service.category.title }}{% endif %}</span>
+    {% endif %}
+  {% elif service %}
+    {{ service.name }}
+    {% if service.category %}<br><span class="text-gray-500">{{ service.category.title }}</span>{% endif %}
+  {% else %}
+    -
+  {% endif %}
+{% endmacro %}
+
 
 {% macro turno_row_daily(timeslot) %}
   <tr>
@@ -17,13 +53,7 @@
       {{ timeslot.start.strftime('%d/%m/%Y %H:%M') }}
     </td>
     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-      {% if timeslot.field %}
-        {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}
-        {% if timeslot.field.sport %}<br><span class="text-gray-500">{{ timeslot.field.sport }}</span>{% endif %}
-      {% elif timeslot.service %}
-        {{ timeslot.service.name }}
-        <br><span class="text-gray-500">{{ timeslot.service.category.title }}</span>
-      {% endif %}
+      {{ turno_location(timeslot) }}
     </td>
     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
       {% if timeslot.price %}
@@ -65,11 +95,7 @@
   <tr>
     <td class="px-4 py-2 text-sm text-gray-900">{{ timeslot.start.strftime('%H:%M') }}</td>
     <td class="px-4 py-2 text-sm text-gray-900">
-      {% if timeslot.field %}
-        {{ timeslot.field.complex.name }} - {{ timeslot.field.name }}
-      {% elif timeslot.service %}
-        {{ timeslot.service.name }}
-      {% endif %}
+      {{ turno_location(timeslot) }}
     </td>
     <td class="px-4 py-2 text-sm text-gray-900">
       {% if timeslot.price %}${{ timeslot.price }}{% else %}-{% endif %}
@@ -103,3 +129,4 @@
     </td>
   </tr>
 {% endmacro %}
+

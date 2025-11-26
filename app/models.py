@@ -253,6 +253,7 @@ class Timeslot(db.Model):
     # Relationships
     field = db.relationship('Field', back_populates='timeslots')
     service = db.relationship('Service', back_populates='timeslots')
+    beauty_center = db.relationship('BeautyCenter')
     professional = db.relationship('Professional')
     subscriptions = db.relationship('Subscription', back_populates='timeslot')
     

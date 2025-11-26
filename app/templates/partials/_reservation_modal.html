@@ -15,7 +15,7 @@
     <div class="p-6 space-y-4" id="reservation-modal-body-{{ timeslot.id if timeslot else 'na' }}">
       {% if timeslot and not message %}
         <p class="text-sm text-gray-700">
-          Vas a reservar este turno. Al confirmar iniciaremos el contacto con el administrador.
+          Vas a reservar este turno. Al confirmar abriremos WhatsApp en otra pestaña y dejaremos este listado visible.
         </p>
 
         <div class="bg-gray-50 border border-gray-100 rounded-lg p-4 space-y-2">
@@ -43,13 +43,15 @@
         </div>
 
         <div class="space-y-3">
-          <button class="btn-primary w-full"
+          <button class="btn-primary w-full js-hold-btn"
             hx-post="{{ url_for('api.hold_timeslot') }}"
             hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'
             hx-headers='{"X-CSRFToken": "{{ csrf_token() }}"}'
             hx-indicator="#hold-modal-ind-{{ timeslot.id }}"
             hx-swap="none"
-            hx-on="htmx:afterRequest: window.handleHoldModal && window.handleHoldModal(event, {{ timeslot.id }}, {{ hold_minutes|int }})">
+            onclick="window.__holdPopup = window.open('', 'wa_'+Date.now());"
+            data-timeslot-id="{{ timeslot.id }}"
+            data-hold-mins="{{ hold_minutes|int }}">
             Confirmar y contactar
           </button>
           <div id="hold-modal-ind-{{ timeslot.id }}" class="htmx-indicator text-sm text-gray-500 text-center">
@@ -94,6 +96,10 @@
       }
 
       if (!data.success) {
+        if (window.__holdPopup && !window.__holdPopup.closed) {
+          try { window.__holdPopup.close(); } catch (err) {}
+        }
+        window.__holdPopup = null;
         if (body) {
           var error = document.createElement('p');
           error.className = 'text-sm text-red-600';
@@ -123,12 +129,55 @@
         }
       }
 
+      var popupBlocked = false;
       if (data.whatsapp_url) {
-        window.location.href = data.whatsapp_url;
+        try {
+          var popupRef = window.__holdPopup;
+          if (popupRef && !popupRef.closed) {
+            popupRef.location = data.whatsapp_url;
+          } else {
+            popupRef = window.open(data.whatsapp_url, '_blank', 'noopener,noreferrer');
+          }
+          if (!popupRef || popupRef.closed || typeof popupRef.closed === 'undefined') {
+            popupBlocked = true;
+          }
+        } catch (e) {
+          popupBlocked = true;
+        }
       }
+      window.__holdPopup = null;
 
       if (body) {
-        body.innerHTML = "<div class='text-center space-y-2'><p class='text-sm text-gray-700'>En espera... Estamos abriendo WhatsApp para contactar al administrador.</p><p class='text-xs text-gray-500'>Si no se abre, revisa el bloqueador de ventanas emergentes.</p></div>";
+        var extra = popupBlocked
+          ? "<p class='text-xs text-orange-600'>Si no se abrió WhatsApp, revisa el bloqueador de ventanas emergentes o abrilo manualmente: <a class='underline' href='" + (data.whatsapp_url || '#') + "' target='_blank' rel='noopener'>abrir enlace</a>.</p>"
+          : "";
+        body.innerHTML = "<div class='text-center space-y-2'><p class='text-sm text-gray-700'>En espera... Estamos abriendo WhatsApp para contactar al administrador.</p><p class='text-xs text-gray-500'>Si no se abre, revisa el bloqueador de ventanas emergentes.</p>" + extra + "</div>";
+      }
+
+      if (window.htmx) {
+        var filtersForm = document.getElementById('filters-form');
+        if (filtersForm) {
+          var statusSelect = filtersForm.querySelector("select[name='status']");
+          if (statusSelect) {
+            statusSelect.value = 'all';
+          }
+        }
+        var loader = document.querySelector('#turnos-container [hx-get][hx-target="#turnos-container"]') ||
+                     document.querySelector('[hx-target="#turnos-container"][hx-get]');
+        if (loader) {
+          htmx.trigger(loader, 'load');
+        } else if (filtersForm) {
+          var values = {};
+          var formData = new FormData(filtersForm);
+          formData.set('status', 'all');
+          formData.forEach(function (v, k) { values[k] = v; });
+          htmx.ajax('GET', '{{ url_for("ui.turnos_table") }}', {
+            target: '#turnos-container',
+            swap: 'innerHTML',
+            values: values,
+            pushURL: true
+          });
+        }
       }
 
       if (modal) {
@@ -137,6 +186,21 @@
         }, 800);
       }
     };
+
+    if (!window.__holdListenerAttached) {
+      window.__holdListenerAttached = true;
+      document.addEventListener('htmx:afterRequest', function (evt) {
+        var targetEl = evt && evt.target;
+        if (!targetEl || !targetEl.classList || !targetEl.classList.contains('js-hold-btn')) {
+          return;
+        }
+        var tsId = targetEl.getAttribute('data-timeslot-id');
+        var holdMins = parseInt(targetEl.getAttribute('data-hold-mins'), 10) || 15;
+        if (window.handleHoldModal) {
+          window.handleHoldModal(evt, tsId, holdMins);
+        }
+      });
+    }
   }
 </script>
 
