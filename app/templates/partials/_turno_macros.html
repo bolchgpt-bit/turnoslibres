@@ -74,17 +74,7 @@
           Reservar
         </a>
       {% else %}
-        <div class="flex items-center space-x-2">
-          <input type="email" placeholder="tu@email.com" class="text-xs px-2 py-1 border rounded" id="email-{{ timeslot.id }}">
-          <button class="text-blue-600 hover:text-blue-900 text-xs"
-                  hx-post="{{ url_for('ui.subscribe') }}"
-                  hx-target="#result-{{ timeslot.id }}"
-                  hx-include="#email-{{ timeslot.id }}"
-                  hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'>
-            Avisar
-          </button>
-        </div>
-        <div id="result-{{ timeslot.id }}" class="mt-1"></div>
+        <span class="text-sm text-gray-500">No disponible</span>
       {% endif %}
     </td>
   </tr>
@@ -114,19 +104,8 @@
           Reservar
         </a>
       {% else %}
-        <div class="flex items-center space-x-1">
-          <input type="email" placeholder="email" class="text-xs px-1 py-1 border rounded w-20" id="email-week-{{ timeslot.id }}">
-          <button class="text-blue-600 hover:text-blue-900 text-xs"
-                  hx-post="{{ url_for('ui.subscribe') }}"
-                  hx-target="#result-week-{{ timeslot.id }}"
-                  hx-include="#email-week-{{ timeslot.id }}"
-                  hx-vals='{"timeslot_id": "{{ timeslot.id }}"}'>
-            Avisar
-          </button>
-        </div>
-        <div id="result-week-{{ timeslot.id }}" class="mt-1"></div>
+        <span class="text-xs text-gray-500">No disponible</span>
       {% endif %}
     </td>
   </tr>
 {% endmacro %}
-
