@@ -22,7 +22,9 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from markupsafe import escape
 import os
 import uuid
+from io import BytesIO
 from werkzeug.utils import secure_filename
+from PIL import Image
 from app.models_catalog import BeautyCenter
 from app.models_catalog import Professional
 from app.models import user_beauty_centers, user_professionals
@@ -284,6 +286,36 @@ def _allowed_image(filename: str) -> bool:
     name = (filename or '').lower()
     return any(name.endswith(e) for e in exts)
 
+MAX_IMAGE_BYTES = 3 * 1024 * 1024  # 3MB
+MAX_IMAGE_SIDE = 1600  # px
+
+
+def _process_image_upload(file_storage, abs_dir: str, rel_dir: str) -> str:
+    """Valida peso/formato y guarda como WEBP optimizado, devolviendo la ruta relativa."""
+    data = file_storage.read()
+    if not data:
+        raise ValueError('Archivo vacio')
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError('La imagen supera 3 MB')
+    try:
+        img = Image.open(BytesIO(data))
+    except Exception:
+        raise ValueError('Imagen invalida')
+
+    img = img.convert('RGB')
+    w, h = img.size
+    max_side = max(w, h)
+    if max_side > MAX_IMAGE_SIDE:
+        ratio = MAX_IMAGE_SIDE / float(max_side)
+        new_size = (int(w * ratio), int(h * ratio))
+        img = img.resize(new_size, Image.LANCZOS)
+
+    os.makedirs(abs_dir, exist_ok=True)
+    fname = f"{uuid.uuid4().hex}.webp"
+    abs_path = os.path.join(abs_dir, fname)
+    img.save(abs_path, format='WEBP', quality=82, method=6)
+    return os.path.join(rel_dir, fname).replace('\\', '/')
+
 
 @bp.route('/complex_photos')
 @login_required
@@ -329,23 +361,12 @@ def complex_photos_upload():
             message_text = 'Formato no permitido (solo JPG, PNG, WEBP)'
             message_category = 'error'
         else:
-            # Build path under static/uploads/complexes/<slug>/
-            base_static = current_app.config.get('STATIC_ROOT', None)
-            # Default to app/static if not configured
-            if not base_static:
-                base_static = os.path.join(current_app.root_path, 'static')
+            base_static = current_app.config.get('STATIC_ROOT', None) or os.path.join(current_app.root_path, 'static')
             rel_dir = os.path.join('uploads', 'complexes', cpx.slug)
             abs_dir = os.path.join(base_static, rel_dir)
-            os.makedirs(abs_dir, exist_ok=True)
-
-            ext = os.path.splitext(file.filename)[1].lower()
-            fname = secure_filename(f"{uuid.uuid4().hex}{ext}")
-            abs_path = os.path.join(abs_dir, fname)
-            rel_path = os.path.join(rel_dir, fname).replace('\\', '/')
 
             try:
-                file.save(abs_path)
-                # Rank next
+                rel_path = _process_image_upload(file, abs_dir, rel_dir)
                 next_rank = (cpx.photos[-1].rank + 1) if cpx.photos else 0
                 from app.models import ComplexPhoto  # local import to avoid circular
                 photo = ComplexPhoto(complex_id=cpx.id, path=rel_path, rank=next_rank)
@@ -353,6 +374,9 @@ def complex_photos_upload():
                 db.session.commit()
                 message_text = 'Foto subida correctamente'
                 message_category = 'success'
+            except ValueError as ve:
+                message_text = str(ve)
+                message_category = 'error'
             except Exception as e:
                 current_app.logger.exception('Upload failed: %s', e)
                 message_text = 'No se pudo subir la foto'
@@ -457,15 +481,9 @@ def beauty_photos_upload():
             base_static = current_app.config.get('STATIC_ROOT', None) or os.path.join(current_app.root_path, 'static')
             rel_dir = os.path.join('uploads', 'beauty_centers', center.slug)
             abs_dir = os.path.join(base_static, rel_dir)
-            os.makedirs(abs_dir, exist_ok=True)
-
-            ext = os.path.splitext(file.filename)[1].lower()
-            fname = secure_filename(f"{uuid.uuid4().hex}{ext}")
-            abs_path = os.path.join(abs_dir, fname)
-            rel_path = os.path.join(rel_dir, fname).replace('\\', '/')
 
             try:
-                file.save(abs_path)
+                rel_path = _process_image_upload(file, abs_dir, rel_dir)
                 from app.models_catalog import BeautyCenterPhoto
                 next_rank = (center.photos[-1].rank + 1) if center.photos else 0
                 photo = BeautyCenterPhoto(beauty_center_id=center.id, path=rel_path, rank=next_rank)
@@ -473,6 +491,9 @@ def beauty_photos_upload():
                 db.session.commit()
                 message_text = 'Foto subida correctamente'
                 message_category = 'success'
+            except ValueError as ve:
+                message_text = str(ve)
+                message_category = 'error'
             except Exception as e:
                 current_app.logger.exception('Upload failed: %s', e)
                 message_text = 'No se pudo subir la foto'
@@ -519,6 +540,74 @@ def beauty_photos_delete():
 
     return render_template('admin/partials/_beauty_photos.html', center=center, photos=center.photos,
                           message_text='Foto eliminada', message_category='success')
+
+
+@bp.route('/professional_media')
+@login_required
+def professional_media():
+    professional_id = request.args.get('professional_id', type=int)
+    if not professional_id:
+        return redirect(url_for('admin.panel'))
+    prof = Professional.query.get_or_404(professional_id)
+    # Scope: superadmin or linked professional
+    allowed = current_user.is_superadmin
+    if not allowed:
+        link = db.session.execute(
+            db.select(user_professionals).where(
+                user_professionals.c.user_id == current_user.id,
+                user_professionals.c.professional_id == prof.id,
+            )
+        ).first()
+        allowed = bool(link)
+    if not allowed:
+        return redirect(url_for('admin.panel'))
+    return render_template('admin/professional_media.html', professional=prof)
+
+
+@bp.route('/professional_media/upload', methods=['POST'])
+@login_required
+def professional_media_upload():
+    professional_id = request.form.get('professional_id', type=int)
+    kind = (request.form.get('kind') or '').strip().lower()
+    if not professional_id or kind not in ('avatar', 'banner'):
+        return jsonify({'error': 'Datos invalidos'}), 400
+    prof = Professional.query.get_or_404(professional_id)
+
+    allowed = current_user.is_superadmin
+    if not allowed:
+        link = db.session.execute(
+            db.select(user_professionals).where(
+                user_professionals.c.user_id == current_user.id,
+                user_professionals.c.professional_id == prof.id,
+            )
+        ).first()
+        allowed = bool(link)
+    if not allowed:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    file = request.files.get('photo')
+    if not file or not file.filename:
+        return jsonify({'error': 'Archivo requerido'}), 400
+    if not _allowed_image(file.filename):
+        return jsonify({'error': 'Formato no permitido (solo JPG, PNG, WEBP)'}), 400
+
+    base_static = current_app.config.get('STATIC_ROOT', None) or os.path.join(current_app.root_path, 'static')
+    rel_dir = os.path.join('uploads', 'professionals', prof.slug)
+    abs_dir = os.path.join(base_static, rel_dir)
+
+    try:
+        rel_path = _process_image_upload(file, abs_dir, rel_dir)
+        if kind == 'avatar':
+            prof.avatar_path = rel_path
+        else:
+            prof.banner_path = rel_path
+        db.session.commit()
+        return render_template('admin/professional_media.html', professional=prof, message_text='Imagen actualizada', message_category='success')
+    except ValueError as ve:
+        return render_template('admin/professional_media.html', professional=prof, message_text=str(ve), message_category='error')
+    except Exception as e:
+        current_app.logger.exception('Upload failed: %s', e)
+        return render_template('admin/professional_media.html', professional=prof, message_text='No se pudo subir la imagen', message_category='error')
 
 
 @bp.route('/beauty_settings')

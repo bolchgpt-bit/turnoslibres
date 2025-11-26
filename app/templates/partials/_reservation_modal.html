@@ -38,7 +38,7 @@
             {% if timeslot.price %}${{ timeslot.price }} {{ timeslot.currency }}{% else %}-{% endif %}
           </div>
           <p class="text-xs text-gray-600">
-            El turno quedará en estado "Reservando" mientras contactamos al administrador.
+            El turno quedará en estado "En espera" mientras contactamos al administrador.
           </p>
         </div>
 
@@ -53,7 +53,7 @@
             Confirmar y contactar
           </button>
           <div id="hold-modal-ind-{{ timeslot.id }}" class="htmx-indicator text-sm text-gray-500 text-center">
-            Reservando...
+            En espera...
           </div>
           <button class="btn-secondary w-full" type="button" onclick="this.closest('[id^=reservation-modal]').remove()">
             Cancelar
@@ -105,7 +105,7 @@
 
       var statusCell = document.getElementById('status-' + timeslotId);
       if (statusCell) {
-        statusCell.innerHTML = "<span class='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800'>Reservando</span> <span id='hold-ct-" + timeslotId + "' class='text-xs text-gray-500'></span>";
+        statusCell.innerHTML = "<span class='inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800'>En espera</span> <span id='hold-ct-" + timeslotId + "' class='text-xs text-gray-500'></span>";
         var secs = (parseInt(holdMinutes, 10) || 15) * 60;
         var counter = document.getElementById('hold-ct-' + timeslotId);
         if (counter) {
@@ -128,7 +128,7 @@
       }
 
       if (body) {
-        body.innerHTML = "<div class='text-center space-y-2'><p class='text-sm text-gray-700'>Reservando... Estamos abriendo WhatsApp para contactar al administrador.</p><p class='text-xs text-gray-500'>Si no se abre, revisa el bloqueador de ventanas emergentes.</p></div>";
+        body.innerHTML = "<div class='text-center space-y-2'><p class='text-sm text-gray-700'>En espera... Estamos abriendo WhatsApp para contactar al administrador.</p><p class='text-xs text-gray-500'>Si no se abre, revisa el bloqueador de ventanas emergentes.</p></div>";
       }
 
       if (modal) {
@@ -139,3 +139,4 @@
     };
   }
 </script>
+

@@ -38,36 +38,33 @@
       {% if complex.contact_email %}
         <a href="mailto:{{ complex.contact_email }}?subject={{ ('Consulta turnos - ' ~ complex.name)|urlencode }}" class="btn-secondary">Email</a>
       {% endif %}
-      {% if complex.address %}
-        <a href="https://maps.google.com/?q={{ complex.address|urlencode }}" target="_blank" rel="noopener" class="btn-secondary">Cómo llegar</a>
-      {% endif %}
     </div>
   </div>
 
   <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-6">
     <div class="md:col-span-2">
-      <h3 class="text-lg font-medium text-gray-900 mb-2">Dirección</h3>
-      <div class="text-gray-700">{{ complex.address or '—' }}</div>
-      {% if complex.address %}
-        <div class="mt-3 aspect-video w-full overflow-hidden rounded-md border">
-          <iframe title="Mapa" class="w-full h-full" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
-                  src="https://www.google.com/maps?q={{ complex.address|urlencode }}&output=embed"></iframe>
-        </div>
-      {% endif %}
+      <h3 class="text-lg font-medium text-gray-900 mb-2">Direccion</h3>
+      <div class="text-gray-700">{{ complex.address or '-' }}</div>
     </div>
     <div>
       <h3 class="text-lg font-medium text-gray-900 mb-2">Contacto</h3>
       <ul class="space-y-1 text-gray-700">
-        <li><strong>Teléfono:</strong> {{ complex.contact_phone or '—' }}</li>
-        <li><strong>Email:</strong> {{ complex.contact_email or '—' }}</li>
+        <li><strong>Telefono:</strong> {{ complex.contact_phone or '-' }}</li>
+        <li><strong>Email:</strong> {{ complex.contact_email or '-' }}</li>
       </ul>
+      {% if complex.address %}
+        <div class="mt-4 rounded-md border overflow-hidden">
+          <iframe title="Mapa" class="w-full h-48" loading="lazy" referrerpolicy="no-referrer-when-downgrade"
+                  src="https://www.google.com/maps?q={{ complex.address|urlencode }}&output=embed"></iframe>
+        </div>
+      {% endif %}
     </div>
   </div>
 </section>
 
 {% if complex.photos %}
 <section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
-  <h3 class="text-lg font-medium text-gray-900 mb-4">Galería</h3>
+  <h3 class="text-lg font-medium text-gray-900 mb-4">Galeria</h3>
   <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
     {% for p in complex.photos %}
       <img src="{{ url_for('static', filename=p.path) }}" alt="Foto {{ loop.index }} de {{ complex.name }}" class="w-full h-40 object-cover rounded-md">

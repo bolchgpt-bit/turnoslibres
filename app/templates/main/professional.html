@@ -15,20 +15,37 @@
 </nav>
 
 <!-- Header -->
-<section class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-100">
-  <div class="flex items-start justify-between gap-4">
-    <div>
-      <h1 class="text-3xl font-semibold text-gray-900">{{ professional.name }}</h1>
-      <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
-        {% if professional.city %}
-          <span class="inline-flex items-center gap-1">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-7-10a7 7 0 1 1 14 0c0 5.5-7 10-7 10Z"/><circle cx="12" cy="11" r="3"/></svg>
-            {{ professional.city }}
-          </span>
+<section class="bg-white rounded-lg shadow-sm p-0 mb-6 border border-gray-100 overflow-hidden">
+  <div class="h-32 w-full bg-gray-100">
+    {% if professional.banner_path %}
+      <img src="{{ url_for('static', filename=professional.banner_path) }}" alt="Banner {{ professional.name }}" class="w-full h-32 object-cover">
+    {% endif %}
+  </div>
+  <div class="p-6 pb-4 flex items-start justify-between gap-4">
+    <div class="flex items-start gap-4">
+      <div class="-mt-12 h-24 w-24 rounded-full border-4 border-white bg-gray-100 overflow-hidden shadow">
+        {% if professional.avatar_path %}
+          <img src="{{ url_for('static', filename=professional.avatar_path) }}" alt="Foto de {{ professional.name }}" class="h-full w-full object-cover">
+        {% else %}
+          <div class="h-full w-full flex items-center justify-center text-gray-500 text-sm">Sin foto</div>
         {% endif %}
-        <span class="px-2 py-0.5 rounded-full border text-xs">
-          {% if professional.booking_mode == 'per_day' %}Reserva por día{% else %}Horarios fijos{% endif %}
-        </span>
+      </div>
+      <div>
+        <h1 class="text-3xl font-semibold text-gray-900">{{ professional.name }}</h1>
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-sm text-gray-600">
+          {% if professional.city %}
+            <span class="inline-flex items-center gap-1">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s-7-4.5-7-10a7 7 0 1 1 14 0c0 5.5-7 10-7 10Z"/><circle cx="12" cy="11" r="3"/></svg>
+              {{ professional.city }}
+            </span>
+          {% endif %}
+          <span class="px-2 py-0.5 rounded-full border text-xs">
+            {% if professional.booking_mode == 'per_day' %}Reserva por dia{% else %}Horarios fijos{% endif %}
+          </span>
+        </div>
+        {% if professional.specialties %}
+          <div class="mt-2 text-gray-700 text-sm">{{ professional.specialties }}</div>
+        {% endif %}
       </div>
     </div>
     <div class="flex flex-wrap gap-2">
@@ -42,10 +59,6 @@
       {% endif %}
     </div>
   </div>
-
-  {% if professional.specialties %}
-    <div class="mt-3 text-gray-700">{{ professional.specialties }}</div>
-  {% endif %}
 </section>
 
 <!-- Booking Area -->
@@ -55,7 +68,7 @@
     <p class="text-sm text-gray-600">Este profesional no admite reservas online.</p>
   {% else %}
     {% if professional.booking_mode == 'per_day' %}
-      <h3 class="text-lg font-medium text-gray-900 mb-4">Reservá por día</h3>
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Reserva por dia</h3>
       <div class="hidden"
            hx-get="{{ url_for('ui.prof_day_calendar') }}?slug={{ professional.slug }}"
            hx-target="#per-day-container"

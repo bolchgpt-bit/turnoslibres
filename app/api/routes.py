@@ -133,7 +133,7 @@ def hold_timeslot():
     resp = jsonify(
         {
             "success": True,
-            "message": "Turno en reservando.",
+            "message": "Turno en espera.",
             "whatsapp_url": wa_url,
             "admin_url": admin_url,
         }
@@ -231,7 +231,7 @@ def confirm_turno(timeslot_id):
             jsonify(
                 {
                     "success": False,
-                    "message": 'Solo se pueden confirmar turnos en estado "Reservando"',
+                    "message": 'Solo se pueden confirmar turnos en estado "En espera"',
                 }
             ),
             400,

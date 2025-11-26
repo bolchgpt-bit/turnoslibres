@@ -64,6 +64,8 @@ class Professional(db.Model, _CatalogBase):
     specialties = db.Column(db.String(240))
     category_id = db.Column(db.Integer, db.ForeignKey("categories.id"), nullable=False)
     category = db.relationship("Category")
+    avatar_path = db.Column(db.String(300))
+    banner_path = db.Column(db.String(300))
     # Relación de servicios ofrecidos por el profesional
     linked_services = db.relationship("Service", secondary=professional_services)
     # Configuración de reservas del profesional

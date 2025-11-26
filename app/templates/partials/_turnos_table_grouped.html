@@ -13,7 +13,7 @@
                   <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-3">
                     <span>{{ day.strftime('%A %d de %B') }}</span>
                     {% if day_counts and day in day_counts %}
-                      <span class="text-sm text-gray-500">— {{ day_counts[day]['available'] }} disp · {{ day_counts[day]['holding'] }} reservando · {{ day_counts[day]['reserved'] }} reserv</span>
+                      <span class="text-sm text-gray-500">— {{ day_counts[day]['available'] }} disp · {{ day_counts[day]['holding'] }} en espera · {{ day_counts[day]['reserved'] }} reserv</span>
                     {% endif %}
                   </h3>
                 </div>
@@ -45,3 +45,4 @@
         </div>
     {% endif %}
 </div>
+

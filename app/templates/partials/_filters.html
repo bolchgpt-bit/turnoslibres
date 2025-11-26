@@ -34,7 +34,7 @@
       <select name="status" class="form-input">
         <option value="all" {% if selected_status == 'all' %}selected{% endif %}>Todos</option>
         <option value="available" {% if selected_status == 'available' %}selected{% endif %}>Disponible</option>
-        <option value="holding" {% if selected_status == 'holding' %}selected{% endif %}>Reservando</option>
+        <option value="holding" {% if selected_status == 'holding' %}selected{% endif %}>En espera</option>
         <option value="reserved" {% if selected_status == 'reserved' %}selected{% endif %}>Reservado</option>
         <option value="blocked" {% if selected_status == 'blocked' %}selected{% endif %}>Bloqueado</option>
       </select>

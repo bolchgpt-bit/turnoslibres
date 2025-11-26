@@ -1,5 +1,5 @@
 <div class="bg-white rounded-lg shadow-md p-6">
-  <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuración de Profesionales</h2>
+  <h2 class="text-xl font-semibold text-gray-900 mb-4">Configuracion de Profesionales</h2>
 
   {% if message_text %}
     <div class="mb-4 {{ 'alert-success' if message_category == 'success' else 'alert-danger' }}">{{ message_text }}</div>
@@ -11,9 +11,10 @@
         <tr>
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Profesional</th>
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Modo</th>
-          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duración (min)</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duracion (min)</th>
           <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cupo diario</th>
-          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Visible público</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Visible publico</th>
+          <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Media</th>
           <th class="px-4 py-2"></th>
         </tr>
       </thead>
@@ -26,8 +27,8 @@
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
               <input type="hidden" name="professional_id" value="{{ p.id }}"/>
               <select name="booking_mode" class="form-input">
-                <option value="classic" {% if p.booking_mode=='classic' %}selected{% endif %}>Clásico</option>
-                <option value="per_day" {% if p.booking_mode=='per_day' %}selected{% endif %}>Por día</option>
+                <option value="classic" {% if p.booking_mode=='classic' %}selected{% endif %}>Clasico</option>
+                <option value="per_day" {% if p.booking_mode=='per_day' %}selected{% endif %}>Por dia</option>
               </select>
           </td>
           <td class="px-4 py-2 text-sm">
@@ -39,8 +40,11 @@
           <td class="px-4 py-2 text-sm">
               <label class="inline-flex items-center gap-2">
                 <input type="checkbox" name="show_public_booking" value="1" class="form-checkbox" {% if p.show_public_booking %}checked{% endif %}>
-                <span class="text-xs text-gray-600">Mostrar en página pública</span>
+                <span class="text-xs text-gray-600">Mostrar en pagina publica</span>
               </label>
+          </td>
+          <td class="px-4 py-2 text-sm">
+              <a href="{{ url_for('admin.professional_media', professional_id=p.id) }}" class="btn-secondary">Fotos</a>
           </td>
           <td class="px-4 py-2 text-sm">
               <button type="submit" class="btn-primary">Guardar</button>

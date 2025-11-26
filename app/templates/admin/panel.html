@@ -80,7 +80,7 @@
                 <select name="status" class="form-input">
                     <option value="">Todos</option>
                     <option value="available" {% if request.args.get('status') == 'available' %}selected{% endif %}>Disponible</option>
-                    <option value="holding" {% if request.args.get('status') == 'holding' %}selected{% endif %}>Reservando</option>
+                    <option value="holding" {% if request.args.get('status') == 'holding' %}selected{% endif %}>En espera</option>
                     <option value="reserved" {% if request.args.get('status') == 'reserved' %}selected{% endif %}>Reservado</option>
                     <option value="blocked" {% if request.args.get('status') == 'blocked' %}selected{% endif %}>Bloqueado</option>
                 </select>
