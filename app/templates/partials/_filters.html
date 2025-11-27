@@ -31,7 +31,13 @@
 
     <div>
       <label class="form-label">Estado</label>
-      <select name="status" class="form-input">
+      <select name="status"
+              class="form-input"
+              hx-get="{{ url_for('ui.turnos_table') }}"
+              hx-target="#turnos-container"
+              hx-include="#filters-form input[name], #filters-form select[name]"
+              hx-trigger="change"
+              hx-push-url="true">
         <option value="all" {% if selected_status == 'all' %}selected{% endif %}>Todos</option>
         <option value="available" {% if selected_status == 'available' %}selected{% endif %}>Disponible</option>
         <option value="holding" {% if selected_status == 'holding' %}selected{% endif %}>En espera</option>
@@ -46,7 +52,12 @@
              name="complex_slug"
              class="form-input"
              placeholder="Nombre del complejo"
-             value="{{ request.args.get('complex_slug', '') }}">
+             value="{{ request.args.get('complex_slug', '') }}"
+             hx-get="{{ url_for('ui.turnos_table') }}"
+             hx-target="#turnos-container"
+             hx-include="#filters-form input[name], #filters-form select[name]"
+             hx-trigger="change delay:300ms"
+             hx-push-url="true">
     </div>
 
     <div>
@@ -55,7 +66,12 @@
              name="sport_service"
              class="form-input"
              placeholder="Buscar..."
-             value="{{ request.args.get('sport_service', '') }}">
+             value="{{ request.args.get('sport_service', '') }}"
+             hx-get="{{ url_for('ui.turnos_table') }}"
+             hx-target="#turnos-container"
+             hx-include="#filters-form input[name], #filters-form select[name]"
+             hx-trigger="change delay:300ms"
+             hx-push-url="true">
     </div>
   </div>
 
